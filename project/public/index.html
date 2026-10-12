@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Все дела — личный планировщик</title>
+  <meta name="description" content="Все дела — тёплый минимал планировщик для активных деловых людей. Главное, календарь, быстрый ввод и напоминания в одном месте.">
+  <meta property="og:title" content="Все дела — личный планировщик">
+  <meta property="og:description" content="Тёплый минимал: главное, календарь, быстрый ввод и напоминания для активных деловых людей.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:image" content="data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 1200 630%27%3E%3Crect width=%271200%27 height=%27630%27 fill=%27%23f6efe6%27/%3E%3Ctext x=%2760%27 y=%27220%27 font-family=%27Inter,system-ui,sans-serif%27 font-size=%2764%27 font-weight=%27700%27 fill=%27%232b2724%27%3EВсе дела%3C/text%3E%3Ctext x=%2760%27 y=%27290%27 font-family=%27Inter,system-ui,sans-serif%27 font-size=%2730%27 fill=%27%235a544c%27%3EТёплый минимал планировщик%3C/text%3E%3Ctext x=%2760%27 y=%27480%27 font-family=%27Inter,system-ui,sans-serif%27 font-size=%2726%27 fill=%27%235a544c%27%3EГлавное, календарь, быстрый ввод и напоминания%3C/text%3E%3Ccircle cx=%271060%27 cy=%27260%27 r=%27140%27 fill=%27%236b8e7f%27 opacity=%270.18%27/%3E%3Ctext x=%27990%27 y=%27310%27 font-size=%27120%27%3E📓%3C/text%3E%3C/svg%3E">
+  <meta name="theme-color" content="#f6efe6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%93%93%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">📓</span>
+      <span class="brand-name">Все дела</span>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Меню">☰</button>
+    <nav class="nav" id="nav">
+      <a href="#home" data-route="home" class="nav-item active">Главная</a>
+      <a href="#calendar" data-route="calendar" class="nav-item">Календарь</a>
+      <a href="#tasks" data-route="tasks" class="nav-item">Все задачи</a>
+      <a href="#profile" data-route="profile" class="nav-item">Профиль</a>
+      <a href="#settings" data-route="settings" class="nav-item">Настройки</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" title="Сменить тему">
+      <span class="theme-icon" id="themeIcon">🌗</span>
+      <span id="themeLabel">Авто</span>
+    </button>
+  </header>
+
+  <main id="app">
+    <section class="route" id="home" data-view="home">
+      <div class="hero">
+        <div class="hero-text">
+          <h1 class="hero-greeting" id="heroGreeting">Доброе утро <span class="wave">☀️</span></h1>
+          <p class="hero-sub" id="heroDate">—</p>
+          <p class="hero-hint" id="heroHint"></p>
+          <div class="hero-summary" id="heroSummary"></div>
+        </div>
+        <div class="hero-actions">
+          <a href="#profile" class="profile-pill" id="profilePill" title="Открыть профиль">
+            <span class="profile-avatar" id="profileAvatar">В</span>
+            <span class="profile-name" id="profileName">Гость</span>
+          </a>
+          <button class="cta hero-cta" id="openQuick">＋ Добавить задачу</button>
+        </div>
+      </div>
+
+      <div class="quick-inline" id="quickInline">
+        <div class="quick-inline-row">
+          <input id="quickInlineInput" placeholder="Например: завтра в 10 позвонить маме, напомни за час" />
+          <button class="cta quick-inline-btn" id="quickInlineBtn">＋</button>
+        </div>
+        <div class="quick-preview hidden" id="quickInlinePreview"></div>
+      </div>
+
+      <div class="buckets" id="buckets">
+        <div class="bucket bucket-now">
+          <h3 class="bucket-title">Сейчас <span class="count" id="cntNow">0</span></h3>
+          <div class="bucket-list" data-bucket="now"></div>
+        </div>
+        <div class="bucket bucket-soon">
+          <h3 class="bucket-title">Скоро <span class="count" id="cntSoon">0</span></h3>
+          <div class="bucket-list" data-bucket="soon"></div>
+        </div>
+        <div class="bucket bucket-later">
+          <h3 class="bucket-title">Позже сегодня <span class="count" id="cntLater">0</span></h3>
+          <div class="bucket-list" data-bucket="later"></div>
+        </div>
+        <div class="bucket bucket-overdue">
+          <h3 class="bucket-title">Просроченные <span class="count" id="cntOverdue">0</span></h3>
+          <div class="bucket-list" data-bucket="overdue"></div>
+        </div>
+        <div class="bucket bucket-done">
+          <h3 class="bucket-title">Завершённые сегодня <span class="count" id="cntDone">0</span></h3>
+          <div class="bucket-list" data-bucket="done"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="route hidden" id="calendar" data-view="calendar">
+      <div class="viewbar">
+        <div class="viewbar-left">
+          <h2 id="calTitle">Календарь</h2>
+          <div class="cal-modes">
+            <button class="chip" data-mode="month">Месяц</button>
+            <button class="chip active" data-mode="week">Неделя</button>
+            <button class="chip" data-mode="day">День</button>
+          </div>
+        </div>
+        <div class="viewbar-right">
+          <button class="ghost" id="calPrev">‹ Назад</button>
+          <button class="chip" id="calToday">Сегодня</button>
+          <button class="ghost" id="calNext">Вперёд ›</button>
+        </div>
+      </div>
+      <div id="calContainer"></div>
+    </section>
+
+    <section class="route hidden" id="tasks" data-view="tasks">
+      <div class="viewbar">
+        <h2>Все задачи</h2>
+        <input class="search" id="searchInput" placeholder="Поиск по задачам…">
+      </div>
+      <div class="filters" id="filters">
+        <button class="chip active" data-filter="all">Все</button>
+        <button class="chip" data-filter="today">Сегодня</button>
+        <button class="chip" data-filter="tomorrow">Завтра</button>
+        <button class="chip" data-filter="week">Неделя</button>
+        <button class="chip" data-filter="postponed">Перенесённые</button>
+        <button class="chip" data-filter="done">Выполненные</button>
+        <button class="chip" data-filter="undated">Без даты</button>
+        </div>
+      <div class="task-list" id="taskList"></div>
+    </section>
+
+    <section class="route hidden" id="profile" data-view="profile">
+      <div class="viewbar"><h2>Профиль</h2></div>
+      <div class="profile-grid" id="profileGrid"></div>
+    </section>
+
+    <section class="route hidden" id="settings" data-view="settings">
+      <div class="viewbar"><h2>Настройки</h2></div>
+      <div class="settings-grid" id="settingsGrid"></div>
+    </section>
+  </main>
+
+  <div class="side-panel-overlay" id="sideOverlay"></div>
+  <aside class="side-panel" id="sidePanel" aria-hidden="true">
+    <div class="side-panel-head">
+      <h3 id="sideTitle">Задача</h3>
+      <button class="icon-btn" id="sideClose" title="Закрыть">✕</button>
+    </div>
+    <form class="side-panel-body" id="sideForm"></form>
+    <div class="side-panel-foot">
+      <button class="ghost danger" id="sideDelete">Удалить</button>
+      <span class="spacer"></span>
+      <button class="ghost" id="sideCancel">Отмена</button>
+      <button class="cta" id="sideSave">Сохранить</button>
+    </div>
+  </aside>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"version":1,"runtime":"node24","entry":"server.mjs","dataDirectory":".data","healthPath":"/api/health"}
