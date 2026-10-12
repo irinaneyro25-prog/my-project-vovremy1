@@ -3,22 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Все дела — личный планировщик</title>
-  <meta name="description" content="Все дела — тёплый минимал планировщик для активных деловых людей. Главное, календарь, быстрый ввод и напоминания в одном месте.">
-  <meta property="og:title" content="Все дела — личный планировщик">
-  <meta property="og:description" content="Тёплый минимал: главное, календарь, быстрый ввод и напоминания для активных деловых людей.">
+  <title>Вовремя — личный планировщик</title>
+  <meta name="description" content="Спокойный день. Всё важное — вовремя. Личный планировщик задач и календарь.">
+  <meta property="og:title" content="Вовремя — личный планировщик">
+  <meta property="og:description" content="Спокойный день. Всё важное — вовремя.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
-  <meta property="og:image" content="data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 1200 630%27%3E%3Crect width=%271200%27 height=%27630%27 fill=%27%23f6efe6%27/%3E%3Ctext x=%2760%27 y=%27220%27 font-family=%27Inter,system-ui,sans-serif%27 font-size=%2764%27 font-weight=%27700%27 fill=%27%232b2724%27%3EВсе дела%3C/text%3E%3Ctext x=%2760%27 y=%27290%27 font-family=%27Inter,system-ui,sans-serif%27 font-size=%2730%27 fill=%27%235a544c%27%3EТёплый минимал планировщик%3C/text%3E%3Ctext x=%2760%27 y=%27480%27 font-family=%27Inter,system-ui,sans-serif%27 font-size=%2726%27 fill=%27%235a544c%27%3EГлавное, календарь, быстрый ввод и напоминания%3C/text%3E%3Ccircle cx=%271060%27 cy=%27260%27 r=%27140%27 fill=%27%236b8e7f%27 opacity=%270.18%27/%3E%3Ctext x=%27990%27 y=%27310%27 font-size=%27120%27%3E📓%3C/text%3E%3C/svg%3E">
   <meta name="theme-color" content="#f6efe6">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%93%93%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="./icons/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="preload" href="./static/fonts/manrope.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="./static/styles.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">📓</span>
-      <span class="brand-name">Все дела</span>
+      <img class="brand-mark" src="./icons/logo.svg" width="32" height="32" alt="">
+      <span class="brand-name">Вовремя</span>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Меню">☰</button>
     <nav class="nav" id="nav">
@@ -29,7 +31,7 @@
       <a href="#settings" data-route="settings" class="nav-item">Настройки</a>
     </nav>
     <button class="theme-toggle" id="themeToggle" title="Сменить тему">
-      <span class="theme-icon" id="themeIcon">🌗</span>
+      <span class="theme-icon" id="themeIcon" data-icon="theme"></span>
       <span id="themeLabel">Авто</span>
     </button>
   </header>
@@ -38,7 +40,9 @@
     <section class="route" id="home" data-view="home">
       <div class="hero">
         <div class="hero-text">
-          <h1 class="hero-greeting" id="heroGreeting">Доброе утро <span class="wave">☀️</span></h1>
+          <div class="hero-brand"><img src="./icons/logo.svg" width="60" height="60" alt=""><h1>Вовремя</h1></div>
+          <p class="brand-slogan">Спокойный день. Всё важное — вовремя.</p>
+          <h2 class="hero-greeting" id="heroGreeting">Здравствуйте</h2>
           <p class="hero-sub" id="heroDate">—</p>
           <p class="hero-hint" id="heroHint"></p>
           <div class="hero-summary" id="heroSummary"></div>
@@ -48,17 +52,28 @@
             <span class="profile-avatar" id="profileAvatar">В</span>
             <span class="profile-name" id="profileName">Гость</span>
           </a>
-          <button class="cta hero-cta" id="openQuick">＋ Добавить задачу</button>
+          <button class="cta hero-cta" id="openQuick"><span data-icon="plus"></span> Добавить задачу</button>
         </div>
       </div>
 
       <div class="quick-inline" id="quickInline">
         <div class="quick-inline-row">
-          <input id="quickInlineInput" placeholder="Например: завтра в 10 позвонить маме, напомни за час" />
-          <button class="cta quick-inline-btn" id="quickInlineBtn">＋</button>
+          <span class="quick-input-icon" data-icon="spark"></span>
+          <input id="quickInlineInput" aria-label="Быстрый ввод задачи" placeholder="Например: завтра в 10 позвонить маме" />
+          <button class="ghost quick-inline-btn" id="quickInlineBtn" aria-label="Проверить быстрый ввод">Проверить <span data-icon="arrow"></span></button>
         </div>
+        <p class="quick-hint">Быстрый ввод · укажите дело, день и время. Enter — проверить.</p>
         <div class="quick-preview hidden" id="quickInlinePreview"></div>
       </div>
+      <section class="reminder-banner hidden" id="reminderBanner" aria-label="Настройка напоминаний">
+        <div><strong>Важное не потеряется</strong><p>Разрешите локальные уведомления о задачах. По умолчанию — за 1 час.</p></div>
+        <button class="ghost" id="enableReminders">Включить напоминания</button>
+      </section>
+      <section class="missed-reminders hidden" id="missedReminders" aria-live="polite">
+        <div class="viewbar"><h3>Пропущенные напоминания</h3><button class="ghost" id="dismissMissed">Отметить просмотренными</button></div>
+        <p>Эти напоминания не удалось показать вовремя. Проверьте, какие дела ещё актуальны.</p>
+        <ul id="missedList"></ul>
+      </section>
 
       <div class="buckets" id="buckets">
         <div class="bucket bucket-now">
@@ -137,7 +152,7 @@
       <h3 id="sideTitle">Задача</h3>
       <button class="icon-btn" id="sideClose" title="Закрыть">✕</button>
     </div>
-    <form class="side-panel-body" id="sideForm"></form>
+    <form class="side-panel-body" id="sideForm" onsubmit="return false"></form>
     <div class="side-panel-foot">
       <button class="ghost danger" id="sideDelete">Удалить</button>
       <span class="spacer"></span>
@@ -148,6 +163,6 @@
 
   <div class="toast hidden" id="toast"></div>
 
-  <script src="/static/app.js" defer></script>
+  <script type="module" src="./static/app.js"></script>
 </body>
 </html>

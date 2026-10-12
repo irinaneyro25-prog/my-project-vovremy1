@@ -1,4 +1,6 @@
-/* Все дела — тёплый минимал, молочный/бежевый, графитовый текст, аккуратные акценты */
+@font-face { font-family: Manrope; src: url('./fonts/manrope.ttf') format('truetype'); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: Inter; src: url('./fonts/inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+/* Вовремя — молочный фон, графитовый текст, спокойные акценты. */
 :root {
   --bg: #f6efe6; --bg-elev: #fbf6ee; --bg-card: #fffaf2; --bg-card-2: #f1e8da;
   --border: #e6dac6; --border-strong: #d8c8ad;
@@ -24,8 +26,8 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", system-ui, sans-serif;
-  font-size: 17px; line-height: 1.5; color: var(--text); background: var(--bg);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 15px; line-height: 1.6; color: var(--text); background: var(--bg);
   -webkit-font-smoothing: antialiased; min-height: 100vh;
 }
 h1, h2, h3 { color: var(--text); letter-spacing: -0.01em; margin: 0; }
@@ -52,8 +54,8 @@ textarea { resize: vertical; min-height: 76px; }
   border-bottom: 1px solid var(--border); backdrop-filter: blur(8px);
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; flex: 0 0 auto; white-space: nowrap; }
-.brand-mark { font-size: 22px; }
-.brand-name { font-size: 17px; letter-spacing: -0.01em; }
+.brand-mark { display: block; flex: none; }
+.brand-name { font-family: Manrope, sans-serif; font-weight: 600; font-size: 21px; letter-spacing: -0.04em; }
 .nav { display: flex; gap: 4px; margin-left: 8px; overflow-x: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
 .nav-item {
@@ -74,9 +76,9 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
 .route { display: block; }
 .hero {
   display: grid; grid-template-columns: 1fr auto; gap: var(--gap-4);
-  align-items: end; padding: 8px 0 18px;
+  align-items: end; padding: 26px 0 24px;
 }
-.hero-greeting { font-size: 32px; }
+.hero-greeting { font-size: 23px; font-weight: 500; margin-top: 30px; }
 .hero-greeting .wave { display: inline-block; }
 .hero-sub { margin: 6px 0 0; color: var(--text-soft); font-size: 15px; }
 .hero-hint { margin: 10px 0 0; color: var(--text-mute); font-size: 15px; line-height: 1.45; }
@@ -155,7 +157,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
 @media (max-width: 720px) { .buckets { grid-template-columns: 1fr; } .hero { grid-template-columns: 1fr; } }
 .bucket {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: none;
 }
 .bucket-title { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text-soft); margin-bottom: 10px; font-weight: 600; }
 .bucket-title .count {
@@ -164,7 +166,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
   background: var(--bg-card-2); color: var(--text-soft);
   border-radius: 999px; font-size: 12px; font-weight: 600;
 }
-.bucket-overdue { background: var(--warn-soft); }
+.bucket-overdue { border-color: var(--border-strong); }
 .bucket-done .task-card { opacity: .75; }
 .bucket-list { display: flex; flex-direction: column; gap: 8px; min-height: 8px; }
 .bucket-empty { font-size: 14px; color: var(--text-mute); padding: 8px 4px; }
@@ -178,12 +180,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
 .task-card:active { transform: translateY(1px); }
 .task-card .cat-stripe { width: 6px; align-self: stretch; border-radius: 6px; }
 .task-card .body { min-width: 0; }
-.task-card .title { font-weight: 600; color: var(--text); }
+.task-card .title { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
 .task-card.done .title { text-decoration: line-through; color: var(--text-mute); }
-.task-card.done { opacity: 0.55; background: var(--bg-soft); }
+.task-card.done { opacity: 0.55; background: var(--bg-elev); }
 .task-card.done .cat-stripe { opacity: 0.4; }
-.task-card.done .act-done { background: var(--success); color: #fff; }
-.task-card.overdue { border-color: var(--warn); }
+.task-card.done .act-done { background: var(--accent-soft); color: var(--accent-strong); }
+.task-card.overdue { border-color: var(--border-strong); }
 .task-card .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 4px; font-size: 13px; color: var(--text-soft); align-items: center; }
 .task-card .actions { display: flex; gap: 2px; }
 .task-card .actions .icon-btn { width: 44px; height: 44px; font-size: 17px; }
@@ -194,22 +196,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
 .task-list { display: flex; flex-direction: column; gap: 10px; }
 .task-list .task-card { grid-template-columns: 6px 1fr auto; padding: 14px 16px; border-radius: var(--radius-lg); }
 .task-list .task-card .actions { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
-.task-list .task-card .actions .act {
-  height: 40px; padding: 0 12px; border: 1px solid var(--border);
-  background: var(--bg-card); border-radius: var(--radius);
-  font-size: 14px; font-weight: 500;
-  display: inline-flex; align-items: center; gap: 6px;
-  color: var(--text-soft); cursor: pointer; min-width: 110px; justify-content: center;
-}
-.task-list .task-card .actions .act:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-card-2); }
-.task-list .task-card .actions .act.danger { color: var(--danger); border-color: var(--danger-soft); }
-.task-list .task-card .actions .act.danger:hover { background: var(--danger-soft); }
-.task-list .task-card .actions .act.success { color: var(--accent-strong); border-color: var(--accent-soft); }
-.task-list .task-card .actions .act.success:hover { background: var(--accent-soft); }
+.task-list .task-card .actions .act { width: 40px; height: 40px; min-width: 40px; padding: 0; }
+.task-list .task-card .actions .act.danger { color: var(--text-mute); }
+.task-list .task-card .actions .act.danger:hover { color: var(--danger); background: var(--danger-soft); }
 @media (max-width: 640px) {
-  .task-list .task-card { grid-template-columns: 6px 1fr; }
-  .task-list .task-card .actions { grid-column: 1 / -1; margin-top: 10px; }
-  .task-list .task-card .actions .act { flex: 1 1 45%; min-width: 0; }
+  .task-list .task-card { grid-template-columns: 4px 1fr; }
+  .task-list .task-card .actions { grid-column: 2; margin-top: 4px; }
 }
 .viewbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-3); margin-bottom: 18px; flex-wrap: wrap; }
 .viewbar-left, .viewbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -241,7 +233,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
 .cal-day .cal-task { font-size: 13px; padding: 6px 8px; }
 .cal-day-empty { color: var(--text-mute); font-size: 13px; }
 .cal-modes { display: flex; gap: 6px; }
-.quick-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm); }
+.quick-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; box-shadow: none; }
 .quick-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .quick-row .hint { color: var(--text-mute); font-size: 13px; }
 .settings-grid, .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -328,7 +320,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
 .bucket-later .task-card.overdue::before,
 .bucket-overdue .task-card.overdue::before { content: ''; }
 .task-card.overdue { position: relative; }
-.bucket-overdue .task-card.overdue { border-color: var(--warn); background: var(--warn-soft); }
+.bucket-overdue .task-card.overdue { border-color: var(--border-strong); }
 
 /* мобильное меню (гамбургер) */
 .nav-toggle {
@@ -369,9 +361,69 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px 18px 80px; }
   .brand { order: 1; }
   .profile-pill .profile-name { display: none; }
   .profile-pill { padding: 4px; }
-  .hero-greeting { font-size: 26px; }
+  .hero-greeting { font-size: 21px; }
   .hero-summary .pill { font-size: 13px; padding: 5px 10px; }
   .quick-inline-row { flex-wrap: nowrap; gap: 4px; }
   .quick-inline-row input { padding: 8px 10px; font-size: 14px; }
   .quick-inline-row .cta { padding: 0 10px; min-width: 72px; font-size: 13px; white-space: nowrap; }
+}
+
+/* Вовремя: бренд, единые иконки и локальные напоминания. */
+.hero-brand { display: flex; align-items: center; gap: 16px; }
+.hero-brand h1 { font-family: Manrope, sans-serif; font-size: 48px; font-weight: 600; letter-spacing: -.055em; line-height: 1.2; }
+.brand-slogan { margin: 12px 0 0; font-family: Inter, sans-serif; font-weight: 400; font-size: 16px; color: var(--text-soft); white-space: nowrap; }
+.hero-actions { flex-direction: column; align-items: flex-end; gap: 18px; }
+.hero-cta { background: var(--accent-strong); color: #fff; }
+.hero-cta:hover { background: var(--accent); }
+.ui-icon { display: inline-block; width: 20px; height: 20px; flex: none; vertical-align: middle; }
+.meta-item { display: inline-flex; align-items: center; gap: 5px; }
+.meta-item .ui-icon { width: 14px; height: 14px; }
+.quick-input-icon { display: flex; align-items: center; padding-left: 10px; color: var(--accent-strong); }
+.quick-inline-btn { font-size: 13px !important; border: none; color: var(--text-soft); background: transparent; }
+.quick-inline-btn .ui-icon { width: 17px; }
+.quick-hint { color: var(--text-mute); font-size: 12px; margin: 6px 12px; }
+.reminder-banner, .missed-reminders { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 20px; background: var(--bg-elev); }
+.reminder-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.reminder-banner p, .missed-reminders p { font-size: 13px; color: var(--text-soft); margin: 4px 0 0; }
+.missed-reminders { border-left: 3px solid var(--warn); }
+.missed-reminders .viewbar { margin-bottom: 8px; }
+.missed-reminders ul { padding: 0; list-style: none; margin-bottom: 0; }
+.missed-reminders li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.missed-reminders li span { color: var(--text-soft); }
+.switch-row { display: flex; align-items: center; gap: 10px; padding: 8px 0 16px; }
+.switch-row input { width: 18px; height: 18px; accent-color: var(--accent-strong); }
+.hint { color: var(--text-soft); font-size: 13px; line-height: 1.65; }
+.notification-status { color: var(--accent-strong); font-size: 13px; }
+.task-card .actions .act-done { border: 1px solid var(--border-strong); border-radius: 50%; }
+.task-card.done { opacity: .7; }
+.cal-task { display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid; border-radius: 8px; }
+.cal-task-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cal-task .icon-btn { width: 28px; height: 30px; min-width: 28px; padding: 0; }
+.cal-task .ui-icon { width: 15px; height: 15px; }
+.cal-task.done .cal-task-title { text-decoration: line-through; color: var(--text-mute); }
+.cal-task.done { opacity: .6; }
+.cal-cell .cal-task, .cal-day .cal-task { padding: 2px 3px; white-space: normal; }
+.cal-task .act-done { color: var(--accent-strong); }
+#calContainer { overflow-x: auto; padding-bottom: 8px; }
+.cal-grid-month, .cal-grid-week { min-width: 780px; }
+.task-card .actions { align-items: center; }
+:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+button:disabled { opacity: .5; cursor: wait; }
+[data-theme="dark"] .hero-brand img, [data-theme="dark"] .brand-mark { filter: brightness(1.8) saturate(.7); }
+@media (max-width: 720px) {
+  .hero-actions { flex-direction: row; justify-content: space-between; align-items: center; }
+  .hero-brand h1 { font-size: 40px; }
+  .hero-brand img { width: 48px; height: 48px; }
+  .brand-slogan { font-size: clamp(11px, 3.45vw, 16px); }
+  .hero-greeting { margin-top: 24px; }
+  .reminder-banner { align-items: flex-start; flex-direction: column; }
+  .missed-reminders li { flex-direction: column; gap: 2px; }
+  .topbar { gap: 6px; }
+}
+@media (min-width: 481px) and (max-width: 900px) {
+  .topbar { flex-wrap: wrap; }
+  .nav { order: 4; width: 100%; margin: 4px 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

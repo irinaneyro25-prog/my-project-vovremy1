@@ -202,6 +202,7 @@ export class ProfileRepository {
     const r = this.db.prepare('SELECT * FROM user_profile WHERE user_id = ?').get(userId);
     if (!r) return { name: null, occupation: null, avatar_emoji: '🌿', bio: null };
     return {
+      user_id: userId,
       name: r.name || null,
       occupation: r.occupation || null,
       avatar_emoji: r.avatar_emoji || '🌿',
@@ -247,7 +248,7 @@ export class SessionRepository {
       this.db.prepare(
         'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
       ).run(token, userId, now.toISOString(), expires.toISOString());
-      this.db.prepare('INSERT OR IGNORE INTO user_settings (user_id, updated_at) VALUES (?, ?)').run(userId, now.toISOString());
+      this.db.prepare("INSERT OR IGNORE INTO user_settings (user_id, default_reminders, updated_at) VALUES (?, '[60]', ?)").run(userId, now.toISOString());
       this.db.prepare('INSERT OR IGNORE INTO user_profile (user_id, updated_at) VALUES (?, ?)').run(userId, now.toISOString());
       this.db.exec('COMMIT');
     } catch (error) {

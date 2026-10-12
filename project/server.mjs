@@ -13,6 +13,8 @@ const types = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.pdf': 'application/pdf',
+  '.webmanifest': 'application/manifest+json',
+  '.ttf': 'font/ttf',
 };
 
 const api = initApi({ dataDir: resolve('.data') });
@@ -76,5 +78,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(3000, '127.0.0.1', () => {
-  console.log('vse-dela server started on http://127.0.0.1:3000');
+  console.log('Вовремя: сервер запущен на http://127.0.0.1:3000');
 });

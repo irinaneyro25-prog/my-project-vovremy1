@@ -65,9 +65,7 @@ export async function handleApi(req, res, ctx, session) {
     if (method === 'GET') {
       const filter = url.searchParams.get('filter');
       const q = url.searchParams.get('q');
-      let items = q
-        ? ctx.taskService.search(userId, q)
-        : (filter ? ctx.taskService.listForFilter(userId, filter) : ctx.taskService.listAll(userId));
+      const items = ctx.taskService.listForFilter(userId, filter || 'all', q || '');
       return ctx.send(res, 200, items);
     }
     if (method === 'POST') {
@@ -89,7 +87,7 @@ export async function handleApi(req, res, ctx, session) {
   if (method === 'POST' && path === '/api/quick-preview') {
     const body = await ctx.readJson(req);
     if (!body.text) return ctx.badRequest(res, 'text is required');
-    return ctx.send(res, 200, ctx.taskService.previewFromText(body.text, body.timezone || 'Europe/Moscow'));
+    return ctx.send(res, 200, ctx.taskService.previewFromText(body.text, body.timezone || 'Europe/Moscow', userId));
   }
 
   // /api/tasks/:id/* — все операции фильтруются по userId (владельцу записи)

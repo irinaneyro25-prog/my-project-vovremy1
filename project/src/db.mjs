@@ -50,7 +50,7 @@ export class Database {
         evening_plan_time TEXT NOT NULL DEFAULT '20:00',
         evening_stats_time TEXT NOT NULL DEFAULT '20:15',
         reminder_profile TEXT NOT NULL DEFAULT 'standard',
-        default_reminders TEXT NOT NULL DEFAULT '[60,30]',
+        default_reminders TEXT NOT NULL DEFAULT '[60]',
         telegram_sync_enabled INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL
       );
@@ -88,6 +88,11 @@ export class Database {
     const prof = this.db.prepare('SELECT user_id FROM user_profile WHERE user_id = 1').get();
     if (!prof) {
       this.db.prepare('INSERT INTO user_profile (user_id, updated_at) VALUES (1, ?)').run(new Date().toISOString());
+    }
+    // Меняем прежний стандарт приложения, сохраняя напоминания уже созданных задач.
+    if (this.db.prepare('PRAGMA user_version').get().user_version < 1) {
+      this.db.exec("UPDATE user_settings SET default_reminders = '[60]' WHERE default_reminders = '[60,30]' AND reminder_profile = 'standard'");
+      this.db.exec('PRAGMA user_version = 1');
     }
   }
 }

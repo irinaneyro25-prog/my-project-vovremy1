@@ -21,7 +21,7 @@ export function initApi({ dataDir }) {
   profileRepo.userId = userId;
   const sessionRepo = new SessionRepository(db.db);
 
-  const taskService = new TaskService(taskRepo);
+  const taskService = new TaskService(taskRepo, settingsRepo);
   const calendarService = new CalendarService(taskRepo);
   const settingsService = new SettingsService(settingsRepo);
   const profileService = new ProfileService(profileRepo);

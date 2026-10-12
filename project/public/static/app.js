@@ -1,3 +1,8 @@
+import { createPlannerApi } from './planner-api.js';
+import { REMINDER_OPTIONS, dateKey, localInput, localToIso } from './planner-core.js';
+import { ReminderManager, notificationStatus, requestNotificationPermission, showBrowserNotification } from './reminders.js';
+import { icon, fillIcons } from './icons.js';
+
 // === утилиты ===
 const $  = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -27,21 +32,14 @@ const fmt = {
 function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
-function toLocalInput(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - off).toISOString().slice(0, 16);
-}
-function fromLocalInput(v) {
-  if (!v) return null;
-  return new Date(v).toISOString();
-}
+function toLocalInput(iso) { return localInput(iso, state.settings.timezone); }
+function fromLocalInput(value) { return localToIso(value, state.settings.timezone); }
 function priorityLabel(p) {
   return ["Срочно", "Важно", "Обычно", "Не срочно", "Когда-нибудь"][(p || 3) - 1] || "Обычно";
 }
 function reminderLabel(min) {
   if (min < 60) return `за ${min} мин`;
+  if (min === 1440) return "за 1 день";
   if (min === 60) return "за 1 час";
   if (min === 90) return "за 1,5 часа";
   if (min === 120) return "за 2 часа";
@@ -50,48 +48,11 @@ function reminderLabel(min) {
 }
 
 // === API ===
-const api = {
-  base: "",
-  async req(path, opts = {}) {
-    const init = { method: opts.method || "GET", headers: { "content-type": "application/json" } };
-    if (opts.body) init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
-    const r = await fetch(this.base + path, init);
-    if (r.status === 204) return null;
-    const text = await r.text();
-    try { return JSON.parse(text); } catch { return text; }
-  },
-  health: () => api.req("/api/health"),
-  home: () => api.req("/api/home"),
-  categories: () => api.req("/api/categories"),
-  listTasks: (filter, q) => {
-    const params = [];
-    if (filter) params.push("filter=" + filter);
-    if (q) params.push("q=" + encodeURIComponent(q));
-    return api.req("/api/tasks" + (params.length ? "?" + params.join("&") : ""));
-  },
-  getTask: (id) => api.req("/api/tasks/" + id),
-  createTask: (b) => api.req("/api/tasks", { method: "POST", body: b }),
-  updateTask: (id, b) => api.req("/api/tasks/" + id, { method: "PATCH", body: b }),
-  deleteTask: (id) => api.req("/api/tasks/" + id, { method: "DELETE" }),
-  completeTask: (id) => api.req("/api/tasks/" + id + "/done", { method: "POST" }),
-  cancelTask: (id) => api.req("/api/tasks/" + id + "/cancel", { method: "POST" }),
-  reopenTask: (id) => api.req("/api/tasks/" + id + "/reopen", { method: "POST" }),
-  postpone: (id, b) => api.req("/api/tasks/" + id + "/postpone", { method: "POST", body: b }),
-  quickAdd: (text, tz) => api.req("/api/quick-add", { method: "POST", body: { text, timezone: tz } }),
-  quickPreview: (text, tz) => api.req("/api/quick-preview", { method: "POST", body: { text, timezone: tz } }),
-  calendarWeek: (anchor, tz) => api.req("/api/calendar/week?anchor=" + encodeURIComponent(anchor) + "&tz=" + tz),
-  calendarMonth: (y, m, tz) => api.req("/api/calendar/month?year=" + y + "&month=" + m + "&tz=" + tz),
-  calendarDay: (anchor, tz) => api.req("/api/calendar/day?anchor=" + encodeURIComponent(anchor) + "&tz=" + tz),
-  getSettings: () => api.req("/api/settings"),
-  saveSettings: (b) => api.req("/api/settings", { method: "PATCH", body: b }),
-  getProfile: () => api.req("/api/profile"),
-  saveProfile: (b) => api.req("/api/profile", { method: "PUT", body: b }),
-  stats: (days = 7) => api.req("/api/stats?days=" + days),
-};
+const api = createPlannerApi();
 
 // === состояние ===
 const state = {
-  settings: { timezone: "Europe/Moscow", theme_mode: "auto" },
+  settings: { timezone: "Europe/Moscow", theme_mode: "auto", default_reminders: [60], reminders_enabled: false },
   profile: { name: null, occupation: null, avatar_emoji: "🌿", bio: null },
   categories: [],
   calMode: "week",
@@ -129,7 +90,7 @@ function applyTheme() {
   document.documentElement.dataset.theme = t;
   const labels = { light: "Светлая", dark: "Тёмная", auto: "Авто" };
   $("#themeLabel").textContent = labels[state.settings.theme_mode || "auto"] || "Авто";
-  $("#themeIcon").textContent = (state.settings.theme_mode || "auto") === "auto" ? "🌗" : (t === "dark" ? "🌙" : "☀️");
+  $("#themeIcon").innerHTML = icon("theme");
 }
 $("#themeToggle").addEventListener("click", () => {
   const cur = state.settings.theme_mode || "auto";
@@ -144,8 +105,8 @@ function greetingText() {
   const h = new Date().getHours();
   const part = h < 6 ? "Доброй ночи" : h < 11 ? "Доброе утро" : h < 17 ? "Здравствуй" : h < 22 ? "Добрый вечер" : "Доброй ночи";
   const name = state.profile?.name?.trim();
-  const emoji = h < 6 ? "🌙" : h < 11 ? "☀️" : h < 17 ? "🌤" : h < 22 ? "🌆" : "🌙";
-  return name ? `${part}, ${name} ${emoji}` : `${part} ${emoji}`;
+
+  return name ? `${part}, ${name}` : part;
 }
 function applyProfile() {
   const p = state.profile || {};
@@ -176,7 +137,6 @@ function showRoute(name) {
   if (name === "settings") renderSettings();
   if (name === "profile") renderProfile();
 }
-$$(".nav-item").forEach(a => a.addEventListener("click", () => showRoute(a.dataset.route)));
 
 $("#navToggle").addEventListener("click", () => {
   $("#nav").classList.toggle("open");
@@ -205,23 +165,22 @@ function compactTaskCard(t) {
     <div class="body">
       <div class="title">${escapeHtml(t.title)}</div>
       <div class="meta">
-        <span class="tag" style="background:${c.color}">${c.emoji} ${escapeHtml(c.name)}</span>
-        <span>🕐 ${escapeHtml(fmt.dateTime(t.start_at, state.settings.timezone))}</span>
+        <span class="tag" style="background:${c.color}">${escapeHtml(c.name)}</span>
+        <span class="meta-item">${icon("clock")} ${escapeHtml(fmt.dateTime(t.start_at, state.settings.timezone))}</span>
         <span class="prio-dot p${t.priority || 3}" title="${priorityLabel(t.priority)}"></span>
-        ${(t.reminders && t.reminders.length) ? `<span>🔔 ${t.reminders.length}</span>` : ""}
-        ${t.postponed_count ? `<span>↻ ${t.postponed_count}</span>` : ""}
+        ${(t.reminders && t.reminders.length) ? `<span class="meta-item">${icon("bell")} ${t.reminders.length}</span>` : ""}
+        ${t.postponed_count ? `<span class="meta-item">${icon("repeat")} ${t.postponed_count}</span>` : ""}
       </div>
     </div>
     <div class="actions">
-      <button class="icon-btn act-done" title="Завершить" aria-label="Завершить">✓</button>
-      <button class="icon-btn act-edit" title="Редактировать" aria-label="Редактировать">✎</button>
+      <button class="icon-btn act-done" title="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-label="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-pressed="${t.status === 'done'}">${icon('check')}</button>
+      <button class="icon-btn act-edit" title="Редактировать" aria-label="Редактировать">${icon('edit')}</button>
     </div>
-    <span class="prio-badge p${t.priority||3}" title="${priorityLabel(t.priority)}">${priorityLabel(t.priority)}</span>
   `;
   wrap.addEventListener("click", (e) => {
     if (e.target.closest(".act-done")) {
       e.stopPropagation();
-      api.completeTask(t.id).then(()=>{ toast("Завершено ✓"); refreshCurrent(); });
+      finishTask(t, e.target.closest("button"));
       return;
     }
     if (e.target.closest(".act-edit")) { openSidePanel(t.id); return; }
@@ -242,19 +201,18 @@ function bigTaskCard(t) {
     <div class="body">
       <div class="title">${escapeHtml(t.title)}</div>
       <div class="meta">
-        <span class="tag" style="background:${c.color}">${c.emoji} ${escapeHtml(c.name)}</span>
-        <span>🕐 ${escapeHtml(fmt.dateTime(t.start_at, state.settings.timezone))}</span>
+        <span class="tag" style="background:${c.color}">${escapeHtml(c.name)}</span>
+        <span class="meta-item">${icon("clock")} ${escapeHtml(fmt.dateTime(t.start_at, state.settings.timezone))}</span>
         <span class="prio-dot p${t.priority || 3}" title="${priorityLabel(t.priority)}"></span>
-        <span class="prio-badge p${t.priority||3}" title="${priorityLabel(t.priority)}">${priorityLabel(t.priority)}</span>
-        ${(t.reminders && t.reminders.length) ? `<span>🔔 ${t.reminders.map(reminderLabel).join(", ")}</span>` : ""}
-        ${t.postponed_count ? `<span>↻ перенесена ${t.postponed_count}</span>` : ""}
+            ${(t.reminders && t.reminders.length) ? `<span class="meta-item">${icon("bell")} ${t.reminders.map(reminderLabel).join(", ")}</span>` : ""}
+        ${t.postponed_count ? `<span class="meta-item">${icon("repeat")} перенесена ${t.postponed_count}</span>` : ""}
       </div>
     </div>
     <div class="actions">
-      <button class="act" data-act="edit">✎ Редактировать</button>
-      <button class="act" data-act="postpone">↻ Перенести</button>
-      <button class="act ${t.status === 'done' ? 'success' : 'success'}" data-act="done">${t.status === 'done' ? '↺ Вернуть' : '✓ Завершить'}</button>
-      <button class="act danger" data-act="del">🗑 Удалить</button>
+      <button class="icon-btn act" data-act="edit" title="Редактировать" aria-label="Редактировать">${icon("edit")}</button>
+      <button class="icon-btn act" data-act="postpone" title="Перенести" aria-label="Перенести">${icon("repeat")}</button>
+      <button class="icon-btn act act-done" data-act="done" title="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-label="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-pressed="${t.status === 'done'}">${icon('check')}</button>
+      <button class="icon-btn act danger" data-act="del" title="Удалить" aria-label="Удалить">${icon("trash")}</button>
     </div>
   `;
   wrap.addEventListener("click", (e) => {
@@ -265,8 +223,7 @@ function bigTaskCard(t) {
     if (act === "edit") openSidePanel(t.id);
     else if (act === "postpone") openPostponeMenu(t.id);
     else if (act === "done") {
-      if (t.status === "done") api.reopenTask(t.id).then(()=>{ toast("Возвращено в работу"); refreshCurrent(); });
-      else api.completeTask(t.id).then(()=>{ toast("Завершено ✓"); refreshCurrent(); });
+      finishTask(t, a);
     } else if (act === "del") {
       if (confirm("Удалить задачу?")) api.deleteTask(t.id).then(refreshCurrent);
     }
@@ -277,13 +234,13 @@ function bigTaskCard(t) {
 // === Главная ===
 function renderHome() {
   applyProfile();
-  Promise.all([api.home(), api.categories()]).then(([data, cats]) => {
+  Promise.all([api.home(), api.categories()]).then(async ([data, cats]) => {
     state.categories = cats;
     $("#heroDate").textContent = fmt.dayMonth(new Date().toISOString(), state.settings.timezone);
-    const total = (data.now_tasks?.length || 0) + (data.soon_tasks?.length || 0) + (data.later_today?.length || 0) + (data.overdue?.length || 0);
+    const todayTasks = await api.listTasks("today");
+    const total = todayTasks.length;
     const postponed = (data.overdue?.length || 0);
-    const important = (data.now_tasks?.length || 0);
-    const soon = (data.soon_tasks?.length || 0);
+    const important = todayTasks.filter(t => t.priority <= 2 && t.status !== "done").length;
     const summary = $("#heroSummary");
     summary.innerHTML = "";
     const hintEl = $("#heroHint");
@@ -293,16 +250,16 @@ function renderHome() {
       const busy = total >= 6;
       const free = total === 0;
       let txt;
-      if (free) txt = name ? `${name}, сегодня всё спокойно ✨` : "Сегодня всё спокойно ✨";
-      else if (overloaded) txt = name ? `${name}, есть пара перенесённых — разложим по шагам` : "Есть пара перенесённых — разложим по шагам";
+      if (free) txt = name ? `${name}, сегодня всё спокойно` : "Сегодня всё спокойно";
+      else if (overloaded) txt = name ? `${name}, есть просроченные дела — разложим по шагам` : "Есть просроченные дела — разложим по шагам";
       else if (busy) txt = name ? `${name}, сегодня день плотный, но всё реально разложить по шагам` : "Сегодня день плотный, но всё реально разложить по шагам";
       else txt = name ? `${name}, сегодня спокойный день — ${total} задач` : `Сегодня спокойный день — ${total} задач`;
       hintEl.textContent = txt;
     }
     const pills = [
       { label: "Сегодня задач", value: total },
-      { label: "Важных сейчас", value: important },
-      { label: "Скоро", value: soon },
+      { label: "Важных", value: important },
+      { label: "Выполнено", value: data.done_today.length },
       { label: "Просрочено", value: postponed },
     ];
     for (const p of pills) {
@@ -313,7 +270,7 @@ function renderHome() {
     }
     fillBucket("now", data.now_tasks || [], "На ближайший час ничего не запланировано");
     fillBucket("soon", data.soon_tasks || [], "Скоро ничего не запланировано");
-    fillBucket("later", data.later_today || [], "Сегодня всё спокойно ✨");
+    fillBucket("later", data.later_today || [], "Сегодня всё спокойно");
     fillBucket("overdue", data.overdue || [], "Просроченных задач нет");
     fillBucket("done", data.done_today || [], "Завершённых пока нет");
   }).catch(e => toast("Не удалось загрузить данные: " + e.message, "err"));
@@ -380,7 +337,7 @@ async function renderWeek() {
 async function renderMonth() {
   const tz = state.settings.timezone;
   const cur = state.calAnchor;
-  const y = cur.getFullYear(), m = cur.getMonth() + 1;
+  const [y, m] = dateKey(cur, tz).split("-").map(Number);
   const data = await api.calendarMonth(y, m, tz);
   const cont = $("#calContainer");
   cont.innerHTML = "";
@@ -426,7 +383,7 @@ async function renderDay() {
   if (!data.tasks.length) {
     const e = document.createElement("div");
     e.className = "empty-state";
-    e.innerHTML = `<span class="emoji">🌿</span>На этот день ничего не запланировано`;
+    e.innerHTML = `На этот день ничего не запланировано`;
     list.appendChild(e);
   } else {
     for (const t of data.tasks) list.appendChild(bigTaskCard(t));
@@ -437,10 +394,13 @@ async function renderDay() {
 function makeCalTask(t) {
   const c = catInfo(t.category);
   const el = document.createElement("div");
-  el.className = "cal-task";
+  el.className = "cal-task" + (t.status === 'done' ? ' done' : '');
   el.style.borderLeftColor = c.color;
-  el.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block"></span> ${escapeHtml(fmt.time(t.start_at, state.settings.timezone))} · ${escapeHtml(t.title)}`;
-  el.addEventListener("click", () => openSidePanel(t.id));
+  el.innerHTML = `<button class="icon-btn act-done" aria-label="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-pressed="${t.status === 'done'}">${icon('check')}</button><span class="cal-task-title">${escapeHtml(fmt.time(t.start_at, state.settings.timezone))} · ${escapeHtml(t.title)}</span><button class="icon-btn act-edit" aria-label="Редактировать">${icon('edit')}</button>`;
+  el.addEventListener("click", e => {
+    if (e.target.closest('.act-done')) { finishTask(t, e.target.closest('button')); return; }
+    openSidePanel(t.id);
+  });
   return el;
 }
 $$(".cal-modes .chip").forEach(c => c.addEventListener("click", () => { state.calMode = c.dataset.mode; renderCalendar(); }));
@@ -455,25 +415,18 @@ function shiftCal(dir) {
 }
 
 // === Все задачи ===
+let taskRenderSequence = 0;
 async function renderTasks() {
+  const sequence = ++taskRenderSequence;
   const list = $("#taskList");
+  const tasks = await api.listTasks(state.filter, state.search);
+  if (sequence !== taskRenderSequence) return;
+  state.tasks = tasks;
   list.innerHTML = "";
-  if (state.filter === "today") {
-    // единый источник с Главной: /api/home
-    const data = await api.home();
-    state.tasks = [
-      ...(data.overdue || []),
-      ...(data.now_tasks || []),
-      ...(data.soon_tasks || []),
-      ...(data.later_today || []),
-    ];
-  } else {
-    state.tasks = await api.listTasks(state.filter, state.search);
-  }
   if (!state.tasks.length) {
     const e = document.createElement("div");
     e.className = "empty-state";
-    e.innerHTML = `<span class="emoji">🪴</span>Здесь пока пусто. Можно добавить новую задачу.`;
+    e.innerHTML = `Здесь пока пусто. Можно добавить новую задачу.`;
     list.appendChild(e);
     return;
   }
@@ -493,10 +446,11 @@ $("#searchInput").addEventListener("input", (e) => {
 });
 
 // === Быстрое добавление ===
-function renderQuick() { $("#quickPreview").classList.add("hidden"); $("#quickPreview").innerHTML = ""; }
 async function quickPreviewFlow(text, container, onSave) {
   const tz = state.settings.timezone;
+  const sequence = ++previewSequence;
   const data = await api.quickPreview(text, tz);
+  if (sequence !== previewSequence) return;
   if (!data) { toast("Не удалось разобрать текст", "err"); return; }
   const cats = state.categories;
   container.classList.remove("hidden");
@@ -505,12 +459,9 @@ async function quickPreviewFlow(text, container, onSave) {
     <div class="qp-row"><label>Название</label><input id="qpTitle" value="${escapeHtml(data.title)}"></div>
     <div class="qp-row"><label>Дата и время</label><input id="qpStart" type="datetime-local" value="${toLocalInput(data.start_at)}"></div>
     <div class="qp-row"><label>Категория</label><select id="qpCat">${cats.map(c => `<option value="${c.name}" ${c.name===data.category?'selected':''}>${c.emoji} ${c.name}</option>`).join("")}</select></div>
-    <div class="qp-row"><label>Напоминание</label><select id="qpRem">
-      <option value="">Без напоминания</option>
-      <option value="30">За 30 минут</option>
-      <option value="60" ${(data.reminders||[]).includes(60)?'selected':''}>За 1 час</option>
-      <option value="120">За 2 часа</option>
-      <option value="1440">За 1 день</option>
+    <div class="qp-row"><label for="qpRem">Напоминание</label><select id="qpRem">
+      <option value="" ${!data.reminders.length ? 'selected' : ''}>Без напоминания</option>
+      ${REMINDER_OPTIONS.map(m => `<option value="${m}" ${data.reminders[0] === m ? 'selected' : ''}>${reminderLabel(m)}</option>`).join('')}
     </select></div>
     <div class="qp-actions">
       <button class="cta" id="qpSave">Сохранить</button>
@@ -521,45 +472,46 @@ async function quickPreviewFlow(text, container, onSave) {
   `;
   $("#qpCancel").addEventListener("click", () => { container.classList.add("hidden"); container.innerHTML = ""; });
   $("#qpEdit").addEventListener("click", () => $("#qpTitle").focus());
+  let selectedReminders = data.reminders;
+  $("#qpRem").addEventListener("change", e => { selectedReminders = e.target.value ? [Number(e.target.value)] : []; });
   $("#qpSave").addEventListener("click", async () => {
-    const rem = $("#qpRem").value;
+    const saveButton = $("#qpSave");
+    if (saveButton.disabled) return;
     const payload = {
       title: $("#qpTitle").value.trim() || data.title,
       start_at: fromLocalInput($("#qpStart").value) || data.start_at,
       category: $("#qpCat").value,
-      reminders: rem ? [Number(rem)] : [],
+      timezone: state.settings.timezone,
+      reminders: selectedReminders,
+      recurrence_rule: data.recurrence_rule,
     };
     try {
+      saveButton.disabled = true;
       const created = await api.createTask(payload);
       toast("Задача добавлена", "ok");
       container.classList.add("hidden"); container.innerHTML = "";
+      $("#quickInlineInput").value = "";
+      refreshCurrent();
       if (onSave) onSave(created);
     } catch (e) { toast("Не удалось сохранить: " + e.message, "err"); }
+    finally { saveButton.disabled = false; }
   });
 }
-const _qs=$("#quickSubmit");if(_qs) _qs.addEventListener("click", () => {
-  const text = $("#quickText").value.trim();
-  if (!text) return;
-  quickPreviewFlow(text, $("#quickPreview"));
-});
-const _qt=$("#quickText");if(_qt) _qt.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("#quickSubmit").click();
-});
-$("#openQuick").addEventListener("click", () => { document.getElementById("quickInlineInput").focus(); document.getElementById("quickInlineInput").scrollIntoView({behavior:"smooth",block:"center"}); });
-let inlineDebounce;
-$("#quickInlineInput").addEventListener("input", (e) => {
-  clearTimeout(inlineDebounce);
-  const text = e.target.value.trim();
-  inlineDebounce = setTimeout(() => {
-    if (text.length >= 3) quickPreviewFlow(text, $("#quickInlinePreview"));
-    else { $("#quickInlinePreview").classList.add("hidden"); $("#quickInlinePreview").innerHTML = ""; }
-  }, 350);
-});
-$("#quickInlineBtn").addEventListener("click", () => {
+$("#openQuick").addEventListener("click", () => openSidePanel(null));
+let previewSequence = 0;
+async function previewInline() {
   const text = $("#quickInlineInput").value.trim();
   if (!text) return;
-  quickPreviewFlow(text, $("#quickInlinePreview"));
+  try { await quickPreviewFlow(text, $("#quickInlinePreview")); }
+  catch (error) { toast(error.message, 'err'); }
+}
+$("#quickInlineInput").addEventListener("input", () => {
+  // Не перестраиваем форму во время редактирования; предпросмотр по Enter/кнопке.
+  $("#quickInlinePreview").classList.add("hidden");
+  previewSequence++;
 });
+$("#quickInlineInput").addEventListener("keydown", e => { if (e.key === 'Enter') { e.preventDefault(); previewInline(); } });
+$("#quickInlineBtn").addEventListener("click", previewInline);
 
 // === Настройки ===
 async function renderSettings() {
@@ -590,15 +542,19 @@ async function renderSettings() {
     </div>
     <div class="settings-card">
       <h3>Напоминания</h3>
-      <p class="hint" style="color:var(--text-mute);margin:0 0 12px;font-size:14px;line-height:1.5">
-        Пока работают только <b>локальные browser reminders</b> — они сработают, если эта вкладка открыта в браузере.
-        Полноценные 24/7 напоминания появятся после подключения backend / VPS / Telegram.
-      </p>
+      <label class="switch-row"><input type="checkbox" id="remindersEnabled" ${s.reminders_enabled ? 'checked' : ''}> Напоминания включены</label>
+      <div class="field"><label for="defaultReminder">Напоминание по умолчанию</label><select id="defaultReminder">${REMINDER_OPTIONS.map(m => `<option value="${m}" ${s.default_reminders?.[0] === m ? 'selected' : ''}>${reminderLabel(m)}</option>`).join('')}</select></div>
+      <p class="notification-status" id="notificationStatus">${notificationStatus()}</p>
+      <p class="hint">Сейчас используются локальные браузерные уведомления. Они работают при разрешённых уведомлениях, пока вкладка или установленное PWA открыты и браузер позволяет выполнение. Сон устройства и ограничения браузера могут задержать уведомление. После закрытия приложения точное уведомление не гарантируется; при возвращении появятся «Пропущенные напоминания». Для уведомлений при закрытом приложении понадобится сервер или Telegram.</p>
+    </div>
+    <div class="settings-card">
+      <h3>Хранение задач</h3>
+      <p class="hint">${api.mode === 'local' ? 'Задачи сохранены в этом браузере. Они доступны без сервера, но не синхронизируются между устройствами. Очистка данных сайта удалит их.' : 'Задачи сохранены на сервере. Напоминания и разрешение на уведомления настраиваются отдельно в каждом браузере.'}</p>
     </div>
     <div class="settings-card">
       <h3>Категории</h3>
       <div class="inline">
-        ${cats.map(c => `<span class="tag" style="background:${c.color}">${c.emoji} ${escapeHtml(c.name)}</span>`).join("")}
+        ${cats.map(c => `<span class="tag" style="background:${c.color}">${escapeHtml(c.name)}</span>`).join("")}
       </div>
       <p class="hint" style="color:var(--text-mute);margin:8px 0 0;font-size:13px">Цвет и эмодзи закреплены за категорией и одинаковы во всех формах.</p>
     </div>
@@ -609,8 +565,18 @@ async function renderSettings() {
     applyTheme();
     renderSettings();
   }));
-  $("#setTz").addEventListener("change", (e) => { state.settings.timezone = e.target.value; api.saveSettings({ timezone: e.target.value }); applyProfile(); });
-  $("#goProfile").addEventListener("click", () => showRoute("profile"));
+  $("#setTz").addEventListener("change", async e => { state.settings = await api.saveSettings({ timezone: e.target.value }); applyProfile(); });
+  $("#remindersEnabled").addEventListener("change", async e => {
+    try {
+      if (e.target.checked) await enableReminders();
+      else { state.settings = await api.saveSettings({ reminders_enabled: false }); await reminders.check(); }
+      renderSettings();
+    } catch (error) { e.target.checked = state.settings.reminders_enabled; toast(error.message, 'err'); }
+  });
+  $("#defaultReminder").addEventListener("change", async e => {
+    state.settings = await api.saveSettings({ default_reminders: [Number(e.target.value)] });
+  });
+  $("#goProfile").addEventListener("click", () => { location.hash = '#profile'; });
 }
 
 // === Профиль ===
@@ -653,7 +619,7 @@ function renderProfile() {
     applyTheme();
     renderProfile();
   }));
-  $("#profileTz").addEventListener("change", (e) => { state.settings.timezone = e.target.value; api.saveSettings({ timezone: e.target.value }); applyProfile(); });
+  $("#profileTz").addEventListener("change", async e => { state.settings = await api.saveSettings({ timezone: e.target.value }); applyProfile(); });
   $("#profileSave").addEventListener("click", async () => {
     const name = $("#profileNameInput").value.trim();
     const occ = $("#profileOcc").value.trim();
@@ -666,10 +632,12 @@ function renderProfile() {
 
 // === Боковая панель ===
 function openSidePanel(id) {
-  api.getTask(id).then(t => {
+  const taskPromise = id === null ? Promise.resolve({ title: '', description: '', start_at: new Date(Date.now() + 2 * 3600000).toISOString(), category: 'Другое', priority: 3, reminders: state.settings.default_reminders || [60], status: 'planned' }) : api.getTask(id);
+  taskPromise.then(t => {
     if (!t) return;
     state.editingId = id;
-    $("#sideTitle").textContent = t.title;
+    $("#sideTitle").textContent = id === null ? "Новая задача" : "Редактировать задачу";
+    $("#sideDelete").classList.toggle("hidden", id === null);
     const cats = state.categories;
     $("#sideForm").innerHTML = `
       <div class="sp-field"><label>Название</label><input id="spTitle" value="${escapeHtml(t.title)}"></div>
@@ -683,14 +651,11 @@ function openSidePanel(id) {
       </div>
       <div class="sp-field"><label>Напоминание</label>
         <div class="sp-actions-row" id="spRem">
-          <button class="chip ${!t.reminders?.length?'active':''}" data-r="">Без</button>
-          <button class="chip ${t.reminders?.includes(30)?'active':''}" data-r="30">За 30 мин</button>
-          <button class="chip ${t.reminders?.includes(60)?'active':''}" data-r="60">За 1 час</button>
-          <button class="chip ${t.reminders?.includes(120)?'active':''}" data-r="120">За 2 часа</button>
-          <button class="chip ${t.reminders?.includes(1440)?'active':''}" data-r="1440">За день</button>
+          <button type="button" class="chip ${!t.reminders?.length?'active':''}" data-r="">Без</button>
+          ${REMINDER_OPTIONS.map(m => `<button type="button" class="chip ${t.reminders?.includes(m)?'active':''}" data-r="${m}">${reminderLabel(m)}</button>`).join('')}
         </div>
       </div>
-      <div class="sp-field"><label>Действия</label>
+      <div class="sp-field ${id === null ? 'hidden' : ''}"><label>Действия</label>
         <div class="sp-actions-row">
           <button class="ghost" id="spPostpone">↻ Перенести</button>
           <button class="ghost ${t.status==='done'?'success':''}" id="spDone">${t.status==='done'?'↺ Вернуть':'✓ Завершить'}</button>
@@ -702,10 +667,11 @@ function openSidePanel(id) {
       prio = Number(b.dataset.p);
       $$("#spPrio .chip").forEach(x => x.classList.toggle("active", x === b));
     }));
-    let rem = (t.reminders && t.reminders[0]) || "";
+    let selectedReminders = [...(t.reminders || [])];
     $$("#spRem .chip").forEach(b => b.addEventListener("click", () => {
-      rem = b.dataset.r;
-      $$("#spRem .chip").forEach(x => x.classList.toggle("active", x === b));
+      const minutes = Number(b.dataset.r);
+      selectedReminders = minutes ? [minutes] : [];
+      $$("#spRem .chip").forEach(x => x.classList.toggle("active", x.dataset.r ? selectedReminders.includes(Number(x.dataset.r)) : !selectedReminders.length));
     }));
     $("#spPostpone").addEventListener("click", () => openPostponeMenu(id));
     $("#spDone").addEventListener("click", () => {
@@ -717,22 +683,28 @@ function openSidePanel(id) {
     $("#sidePanel").setAttribute("aria-hidden", "false");
     $("#sideSave").onclick = async () => {
       const payload = {
-        title: $("#spTitle").value.trim() || t.title,
+        title: $("#spTitle").value.trim(),
         description: $("#spDesc").value,
         start_at: fromLocalInput($("#spStart").value) || t.start_at,
         category: $("#spCat").value,
         priority: prio,
-        reminders: rem ? [Number(rem)] : [],
+        timezone: state.settings.timezone,
+        reminders: selectedReminders,
       };
-      await api.updateTask(id, payload);
-      toast("Сохранено", "ok");
-      closeSidePanel();
-      refreshCurrent();
+      try {
+        $("#sideSave").disabled = true;
+        if (id === null) await api.createTask(payload);
+        else await api.updateTask(id, payload);
+        toast(id === null ? "Задача добавлена" : "Сохранено", "ok");
+        closeSidePanel();
+        refreshCurrent();
+      } catch (error) { toast(error.message, 'err'); }
+      finally { $("#sideSave").disabled = false; }
     };
     $("#sideDelete").onclick = () => {
       if (confirm("Удалить задачу?")) { api.deleteTask(id).then(() => { closeSidePanel(); refreshCurrent(); }); }
     };
-  });
+  }).catch(error => toast(error.message, 'err'));
 }
 function closeSidePanel() {
   $("#sideOverlay").classList.remove("open");
@@ -769,7 +741,7 @@ function openPostponeMenu(id) {
     $("#pmApply").addEventListener("click", () => {
       const v = $("#pmDate").value;
       if (!v) return;
-      doPostpone(id, { mode: "date", new_start: new Date(v).toISOString() });
+      doPostpone(id, { mode: "date", new_start: fromLocalInput(v) });
     });
   }, 50);
 }
@@ -780,12 +752,16 @@ function doPostpone(id, opts) {
 // === Старт ===
 async function boot() {
   try {
+    await api.init();
     const [cats, settings, profile] = await Promise.all([api.categories(), api.getSettings(), api.getProfile()]);
     state.categories = cats;
     state.settings = { ...state.settings, ...settings };
     state.profile = profile;
     applyTheme();
     applyProfile();
+    fillIcons();
+    registerWorker();
+    reminders.start(error => console.warn('Напоминания:', error.message));
     const r = (location.hash || "#home").slice(1);
     showRoute(["home", "calendar", "tasks", "settings", "profile"].includes(r) ? r : "home");
   } catch (e) {
@@ -793,4 +769,48 @@ async function boot() {
     toast("Ошибка загрузки: " + e.message, "err");
   }
 }
+let workerRegistration = null;
+async function registerWorker() {
+  if ('serviceWorker' in navigator && isSecureContext) {
+    try {
+      workerRegistration = await navigator.serviceWorker.register(new URL('../sw.js', import.meta.url));
+      await navigator.serviceWorker.ready;
+    } catch (error) { console.warn('PWA:', error.message); }
+  }
+}
+const reminders = new ReminderManager({
+  api,
+  notify: entry => showBrowserNotification(entry, workerRegistration?.active ? workerRegistration : null, iso => fmt.dateTime(iso, state.settings.timezone)),
+  onChange(entries, settings) {
+    state.settings = { ...state.settings, ...settings };
+    $("#reminderBanner").classList.toggle('hidden', settings.reminders_enabled);
+    $("#missedReminders").classList.toggle('hidden', !entries.length);
+    $("#missedList").innerHTML = entries.sort((a, b) => b.due - a.due).map(entry => `<li><strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(fmt.dateTime(entry.start, settings.timezone))}</span></li>`).join('');
+    if (state.route === 'settings') {
+      const status = $("#notificationStatus");
+      if (status) status.textContent = notificationStatus();
+    }
+  },
+});
+async function enableReminders() {
+  const granted = await requestNotificationPermission();
+  if (!granted) { toast(notificationStatus(), 'err'); return; }
+  state.settings = await api.saveSettings({ reminders_enabled: true });
+  await reminders.check();
+  toast('Напоминания включены');
+}
+$("#enableReminders").addEventListener('click', () => enableReminders().catch(error => toast(error.message, 'err')));
+$("#dismissMissed").addEventListener('click', () => reminders.dismiss().catch(error => toast(error.message, 'err')));
+async function finishTask(task, button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    if (task.status === 'done') await api.reopenTask(task.id);
+    else await api.completeTask(task.id);
+    toast(task.status === 'done' ? 'Возвращено в работу' : 'Завершено');
+    refreshCurrent();
+  } catch (error) { button.disabled = false; toast(error.message, 'err'); }
+}
+window.addEventListener('storage', () => { if (api.mode) refreshCurrent(); });
+window.addEventListener('unhandledrejection', e => { toast(e.reason?.message || 'Не удалось выполнить действие', 'err'); });
 boot();
