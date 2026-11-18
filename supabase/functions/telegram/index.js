@@ -156,8 +156,12 @@ export default {
           allowed_updates: ['message'],
         }),
       });
-      if (!webhook.ok || !(await webhook.json()).ok)
-        throw new Error('Не удалось включить связь с Telegram');
+      const webhookResult = await webhook.json().catch(() => ({}));
+      if (!webhook.ok || !webhookResult.ok) {
+        const reason = String(webhookResult.description || 'HTTP ' + webhook.status)
+          .replaceAll(botToken, '[скрыто]').replaceAll(webhookSecret, '[скрыто]');
+        throw new Error('Telegram: ' + reason.slice(0, 180));
+      }
       const code = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(18))))
         .replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
       await database('/rest/v1/telegram_link_requests?on_conflict=owner_id', {

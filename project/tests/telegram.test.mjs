@@ -17,6 +17,7 @@ test('Telegram требует секреты, связывает аккаунт 
   const calls = [];
   const marked = [];
   let taskStatus = 'done';
+  let webhookFailure = false;
   globalThis.fetch = async (address, options) => {
     const url = new URL(address);
     calls.push({ url: url.href, options });
@@ -26,6 +27,8 @@ test('Telegram требует секреты, связывает аккаунт 
     }
     if (url.pathname.endsWith('/setWebhook')) {
       assert.equal(JSON.parse(options.body).secret_token, 'webhook-test');
+      if (webhookFailure) return Response.json({ ok: false,
+        description: 'Bad token bot-test' }, { status: 401 });
       return Response.json({ ok: true });
     }
     if (url.pathname === '/rest/v1/telegram_link_requests') {
@@ -81,4 +84,11 @@ test('Telegram требует секреты, связывает аккаунт 
   assert.deepEqual(await next.json(), { claimed: 1, sent: 1 });
   assert.deepEqual(marked, ['cancelled', 'sent']);
   assert.equal(calls.filter(call => call.url.endsWith('/sendMessage')).length, 2);
+  webhookFailure = true;
+  const failed = await handler(new Request(endpoint + 'link', { method: 'POST',
+    headers: { authorization: 'Bearer owner-token' } }));
+  assert.equal(failed.status, 500);
+  const failure = (await failed.json()).error;
+  assert.match(failure, /Telegram: Bad token/);
+  assert.ok(!failure.includes('bot-test'));
 });
