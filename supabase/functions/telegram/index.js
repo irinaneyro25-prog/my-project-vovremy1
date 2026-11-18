@@ -1,3 +1,4 @@
+// @ts-nocheck
 const baseUrl = Deno.env.get('SUPABASE_URL');
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
