@@ -1,11 +1,13 @@
 """UI smoke: python3 tests/browser_smoke.py (requires Python Playwright + Chromium)."""
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import time
 import urllib.request
+import uuid
 from playwright.sync_api import sync_playwright, expect
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -161,8 +163,152 @@ def scenario(browser, url, mode, artifacts):
         page.reload()
         expect(page.locator('#taskList .task-card')).to_have_count(3)
         context.set_offline(False)
+        backup_scenario(browser, page, url, artifacts)
     context.close()
     print(f'PASS {mode}: brand, profile, create/edit/done, calendar/list, persistence, permissions, real SW notification, missed reminders, mobile' + (', offline PWA/subpath' if mode == 'local' else ''), flush=True)
+
+
+def backup_scenario(browser, source, url, artifacts):
+    source.goto(url + '#settings')
+    with source.expect_download() as download:
+        source.locator('#exportTasks').click()
+    path = artifacts / 'task-backup.json'
+    download.value.save_as(path)
+
+    context = browser.new_context()
+    page = context.new_page()
+    page.goto(url + '#settings')
+    picker = page.locator('#taskBackupFile')
+    picker.set_input_files(str(path))
+    expect(page.locator('#taskBackupStatus')).to_have_text('К добавлению: 3. Уже в списке: 0.')
+    local = "JSON.parse(localStorage.getItem('vovremya.planner.v1'))?.tasks"
+    assert page.evaluate(local) is None
+    page.locator('#restoreTasks').click()
+    expect(page.locator('#taskBackupStatus')).to_have_text('Добавлено: 3. Уже было в списке: 0.')
+    assert len(page.evaluate(local)) == 3
+    assert page.evaluate(local) == source.evaluate(local)
+
+    page.reload()
+    picker.set_input_files(str(path))
+    expect(page.locator('#taskBackupStatus')).to_have_text('К добавлению: 0. Уже в списке: 3.')
+    expect(page.locator('#restoreTasks')).to_be_hidden()
+    page.evaluate("""async () => {
+      const { createPlannerApi } = await import('./static/planner-api.js');
+      const api = createPlannerApi(); await api.init();
+      const [task] = await api.listTasks();
+      await api.updateTask(task.id, { title: 'Новая версия задачи' });
+      await api.deleteTask((await api.listTasks())[1].id);
+    }""")
+    picker.set_input_files(str(path))
+    expect(page.locator('#taskBackupStatus')).to_have_text('К добавлению: 1. Уже в списке: 2.')
+    page.locator('#restoreTasks').click()
+    expect(page.locator('#taskBackupStatus')).to_have_text('Добавлено: 1. Уже было в списке: 2.')
+    restored = page.evaluate(local)
+    assert len(restored) == 3
+    assert any(task['title'] == 'Новая версия задачи' for task in restored)
+    picker.set_input_files({'name': 'broken.json', 'mimeType': 'application/json', 'buffer': b'{broken'})
+    expect(page.locator('#taskBackupStatus')).to_have_text('Не удалось прочитать файл JSON')
+    assert page.evaluate(local) == restored
+    context.close()
+    print('PASS backup: download, preview, restore, reload, repeat, merge, invalid file', flush=True)
+
+def cloud_scenario(browser, url):
+    tasks = {}
+    outage = {'enabled': False}
+    user_id = 'b8ad3570-3e7d-4b45-9367-ba3080c1e1a1'
+
+    def open_account():
+        context = browser.new_context()
+        context.add_init_script("localStorage.setItem('vovremya.cloud.key.v1', 'sb_publishable_test')")
+
+        def respond(route):
+            request = route.request
+            path = request.url.split('.co', 1)[1]
+            method = request.method
+            if path.startswith('/auth/v1/token'):
+                data = {'access_token': 'test-access', 'refresh_token': 'test-refresh',
+                        'expires_at': int(time.time()) + 3600, 'user': {'id': user_id}}
+            elif path == '/auth/v1/user':
+                data = {'id': user_id}
+            elif path == '/functions/v1/telegram/status':
+                data = {'linked': False, 'privacy': 'neutral'}
+            elif path.startswith('/rest/v1/planner_tasks'):
+                if outage['enabled']:
+                    route.fulfill(status=503, content_type='application/json',
+                                  body='{"message":"Service unavailable"}')
+                    return
+                assert request.headers['authorization'] == 'Bearer test-access'
+                if method == 'GET':
+                    data = list(tasks.values())
+                elif method == 'POST':
+                    incoming = request.post_data_json
+                    data = []
+                    for task in incoming if isinstance(incoming, list) else [incoming]:
+                        task['id'] = task.get('id') or str(uuid.uuid4())
+                        if task['id'] in tasks:
+                            continue
+                        task['status'] = task.get('status', 'planned')
+                        task['postponed_count'] = task.get('postponed_count', 0)
+                        tasks[task['id']] = task
+                        data.append(task)
+                elif method == 'PATCH':
+                    task_id = path.split('id=eq.', 1)[1].split('&', 1)[0]
+                    tasks[task_id].update(request.post_data_json)
+                    data = [tasks[task_id]]
+                else:
+                    raise AssertionError(method)
+            else:
+                raise AssertionError(path)
+            route.fulfill(status=200, content_type='application/json', body=json.dumps(data))
+
+        context.route('https://sxmaumiqmujgjzelxdrz.supabase.co/**', respond)
+        page = context.new_page()
+        page.goto(url)
+        expect(page.locator('#cloudGate')).to_be_visible()
+        page.locator('#cloudEmail').fill('owner@example.com')
+        page.locator('#cloudPassword').fill('test password')
+        page.locator('#cloudLogin button[type=submit]').click()
+        expect(page.locator('#cloudGate')).to_be_hidden()
+        return context, page
+
+    first_context, first = open_account()
+    first.locator('#openQuick').click()
+    first.locator('#spTitle').fill('Задача из облака')
+    first.locator('#sideSave').click()
+    expect(first.locator('#home .task-card')).to_have_count(1)
+    second_context, second = open_account()
+    expect(second.locator('#home .task-card')).to_have_count(1)
+    expect(second.locator('#home .task-card')).to_contain_text('Задача из облака')
+    second.locator('#home .task-card .act-done').first.click()
+    first.reload()
+    expect(first.locator('#home .task-card.done')).to_have_count(1)
+    second.goto(url + '#settings')
+    backup = {
+        'format': 'vovremya.tasks', 'version': 1,
+        'tasks': [{'id': str(uuid.uuid4()), 'title': 'Перенесённая задача',
+                   'start_at': '2026-12-01T12:00:00Z', 'status': 'planned',
+                   'reminders': [60], 'timezone': 'Europe/Moscow'}],
+    }
+    second.locator('#cloudBackupFile').set_input_files({
+        'name': 'tasks.json', 'mimeType': 'application/json',
+        'buffer': json.dumps(backup).encode(),
+    })
+    expect(second.locator('#cloudBackupStatus')).to_have_text('К добавлению: 1. Уже в облаке: 0.')
+    second.locator('#importCloudTasks').click()
+    expect(second.locator('#cloudBackupStatus')).to_have_text('Добавлено: 1. Уже в облаке: 0.')
+    second.locator('#cloudBackupFile').set_input_files({
+        'name': 'tasks.json', 'mimeType': 'application/json',
+        'buffer': json.dumps(backup).encode(),
+    })
+    expect(second.locator('#cloudBackupStatus')).to_have_text('К добавлению: 0. Уже в облаке: 1.')
+    assert len(tasks) == 2
+    outage['enabled'] = True
+    first.reload()
+    expect(first.locator('#cloudGate')).to_be_visible()
+    expect(first.locator('#cloudLoginStatus')).to_contain_text('Service unavailable')
+    first_context.close()
+    second_context.close()
+    print('PASS cloud mock: login, shared task, completion, idempotent import, outage', flush=True)
 
 
 def main():
@@ -183,6 +329,7 @@ def main():
                 browser = p.chromium.launch(executable_path=CHROMIUM, headless=True, args=['--no-sandbox'])
                 scenario(browser, 'http://127.0.0.1:3000/', 'server', artifacts)
                 scenario(browser, 'http://127.0.0.1:4173/planner/', 'local', artifacts)
+                cloud_scenario(browser, 'http://127.0.0.1:4173/planner/')
                 browser.close()
         finally:
             for process in (server, static):
