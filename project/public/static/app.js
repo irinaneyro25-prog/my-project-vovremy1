@@ -1,4 +1,5 @@
 import { createPlannerApi } from './planner-api.js';
+import { MAX_BACKUP_BYTES } from './task-backup.js';
 import { REMINDER_OPTIONS, dateKey, localInput, localToIso } from './planner-core.js';
 import { ReminderManager, notificationStatus, requestNotificationPermission, showBrowserNotification } from './reminders.js';
 import { icon, fillIcons } from './icons.js';
@@ -542,15 +543,55 @@ async function renderSettings() {
     </div>
     <div class="settings-card">
       <h3>Напоминания</h3>
-      <label class="switch-row"><input type="checkbox" id="remindersEnabled" ${s.reminders_enabled ? 'checked' : ''}> Напоминания включены</label>
+      <label class="switch-row"><input type="checkbox" id="remindersEnabled" ${s.reminders_enabled ? 'checked' : ''}> Уведомления браузера включены</label>
       <div class="field"><label for="defaultReminder">Напоминание по умолчанию</label><select id="defaultReminder">${REMINDER_OPTIONS.map(m => `<option value="${m}" ${s.default_reminders?.[0] === m ? 'selected' : ''}>${reminderLabel(m)}</option>`).join('')}</select></div>
       <p class="notification-status" id="notificationStatus">${notificationStatus()}</p>
       <p class="hint">Сейчас используются локальные браузерные уведомления. Они работают при разрешённых уведомлениях, пока вкладка или установленное PWA открыты и браузер позволяет выполнение. Сон устройства и ограничения браузера могут задержать уведомление. После закрытия приложения точное уведомление не гарантируется; при возвращении появятся «Пропущенные напоминания». Для уведомлений при закрытом приложении понадобится сервер или Telegram.</p>
     </div>
     <div class="settings-card">
       <h3>Хранение задач</h3>
-      <p class="hint">${api.mode === 'local' ? 'Задачи сохранены в этом браузере. Они доступны без сервера, но не синхронизируются между устройствами. Очистка данных сайта удалит их.' : 'Задачи сохранены на сервере. Напоминания и разрешение на уведомления настраиваются отдельно в каждом браузере.'}</p>
+      <p class="hint">${api.mode === 'cloud' ? 'Задачи сохраняются в облаке. При ошибке связи изменения не сохраняются. Профиль, тема и настройки браузерных уведомлений пока относятся к этому устройству.' : api.mode === 'local' ? 'Задачи сохранены в этом браузере. Они доступны без сервера, но не синхронизируются между устройствами. Очистка данных сайта удалит их.' : 'Задачи сохранены на сервере. Напоминания и разрешение на уведомления настраиваются отдельно в каждом браузере.'}</p>
+      ${api.mode === 'local' ? `<div class="field"><label for="cloudKey">Publishable key Supabase</label><input id="cloudKey" autocomplete="off" placeholder="sb_publishable_…"><p class="hint">Ключ можно найти в Supabase → Project Settings → API Keys. Он хранится только в этом браузере. После подключения войдите в созданный личный аккаунт.</p><button class="ghost" id="connectCloud">Подключить облако</button><p id="connectCloudStatus" role="status"></p></div>` : ''}
+      ${api.mode === 'cloud' ? `<button class="ghost" id="cloudSignOut">Выйти из облачного аккаунта</button>` : ''}
     </div>
+    ${api.mode === 'local' ? `
+    <div class="settings-card">
+      <h3>Резервная копия задач</h3>
+      <p class="hint">Сохраните файл с задачами в личной папке. При восстановлении добавятся только задачи, которых ещё нет в списке.</p>
+      <div class="inline">
+        <button class="ghost" id="exportTasks">Скачать копию</button>
+        <button class="ghost" id="chooseTaskBackup">Выбрать файл</button>
+        <input type="file" id="taskBackupFile" accept=".json,application/json" hidden>
+      </div>
+      <p class="hint" id="taskBackupStatus" role="status"></p>
+      <button class="ghost hidden" id="restoreTasks">Добавить задачи из копии</button>
+    </div>` : ''}
+    ${api.mode === 'cloud' ? `
+    <div class="settings-card">
+      <h3>Перенос и копия задач</h3>
+      <p class="hint">Сначала скачайте копию задач этого браузера. Выберите файл для переноса в облако. Исходные задачи сохранятся.</p>
+      <div class="inline">
+        <button class="ghost" id="exportOldTasks">Скачать местные задачи</button>
+        <button class="ghost" id="exportCloudTasks">Скачать облачные задачи</button>
+        <button class="ghost" id="chooseCloudBackup">Выбрать файл для облака</button>
+        <input type="file" id="cloudBackupFile" accept=".json,application/json" hidden>
+      </div>
+      <p id="cloudBackupStatus" role="status"></p>
+      <button class="ghost hidden" id="importCloudTasks">Добавить задачи в облако</button>
+    </div>` : ''}
+    ${api.mode === 'cloud' ? `
+    <div class="settings-card">
+      <h3>Telegram</h3>
+      <p class="hint">Бот отправляет сообщения по облачному расписанию после привязки. Сначала откройте ссылку и нажмите «Старт» в Telegram.</p>
+      <p id="telegramStatus" role="status">Проверяем подключение…</p>
+      <button class="ghost" id="telegramRefresh">Проверить привязку</button>
+      <button class="ghost" id="telegramLink">Привязать Telegram</button>
+      <a class="ghost hidden" id="telegramStart" target="_blank" rel="noopener">Открыть бота</a>
+      <div class="field"><label for="telegramPrivacy">Текст сообщения</label>
+        <select id="telegramPrivacy"><option value="neutral">Без названия задачи</option><option value="title">С названием задачи</option></select>
+      </div>
+      <button class="ghost" id="telegramUnlink">Отключить Telegram</button>
+    </div>` : ''}
     <div class="settings-card">
       <h3>Категории</h3>
       <div class="inline">
@@ -576,7 +617,163 @@ async function renderSettings() {
   $("#defaultReminder").addEventListener("change", async e => {
     state.settings = await api.saveSettings({ default_reminders: [Number(e.target.value)] });
   });
+  if (api.mode === 'local') bindTaskBackup(g);
+  if (api.mode === 'local') {
+    $("#connectCloud", g).addEventListener('click', () => {
+      try { api.configureCloud($("#cloudKey", g).value.trim()); }
+      catch (error) { $("#connectCloudStatus", g).textContent = error.message; }
+    });
+  }
+  if (api.mode === 'cloud') { bindCloudBackup(g); bindTelegram(g); }
   $("#goProfile").addEventListener("click", () => { location.hash = '#profile'; });
+}
+
+function bindTelegram(grid) {
+  const status = $("#telegramStatus", grid);
+  const privacy = $("#telegramPrivacy", grid);
+  const start = $("#telegramStart", grid);
+  privacy.disabled = true;
+  async function updateStatus() {
+    try {
+      const data = await api.telegramStatus();
+      status.textContent = data.linked ? 'Telegram привязан.' : 'Telegram ещё не привязан.';
+      privacy.value = data.privacy;
+      privacy.disabled = !data.linked;
+    } catch (error) { status.textContent = error.message; }
+  }
+  $("#telegramLink", grid).addEventListener('click', async () => {
+    status.textContent = 'Создаём ссылку…';
+    try {
+      const data = await api.telegramLink();
+      const url = new URL(data.url);
+      if (url.origin !== 'https://t.me') throw new Error('Неверная ссылка Telegram');
+      start.href = url.href;
+      start.classList.remove('hidden');
+      status.textContent = 'Ссылка действует 10 минут. Откройте бота и нажмите «Старт».';
+    } catch (error) { status.textContent = error.message; }
+  });
+  privacy.addEventListener('change', async () => {
+    try { await api.telegramPrivacy(privacy.value); status.textContent = 'Настройка сохранена.'; }
+    catch (error) { status.textContent = error.message; }
+  });
+  $("#telegramUnlink", grid).addEventListener('click', async () => {
+    try { await api.telegramUnlink(); start.classList.add('hidden'); await updateStatus(); }
+    catch (error) { status.textContent = error.message; }
+  });
+  $("#telegramRefresh", grid).addEventListener('click', updateStatus);
+  updateStatus();
+}
+
+function downloadBackup(contents, prefix) {
+  const url = URL.createObjectURL(new Blob([contents], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = prefix + '-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+function bindCloudBackup(grid) {
+  const status = $("#cloudBackupStatus", grid);
+  const input = $("#cloudBackupFile", grid);
+  const button = $("#importCloudTasks", grid);
+  let pending = null;
+  $("#cloudSignOut", grid).addEventListener('click', async () => {
+    try { await api.signOut(); location.reload(); }
+    catch (error) { status.textContent = error.message; }
+  });
+  $("#exportOldTasks", grid).addEventListener('click', () => {
+    try { downloadBackup(api.exportLocalTasks(), 'vovremya-local-tasks'); }
+    catch (error) { status.textContent = error.message; }
+  });
+  $("#exportCloudTasks", grid).addEventListener('click', async () => {
+    try { downloadBackup(await api.exportCloudTasks(), 'vovremya-cloud-tasks'); }
+    catch (error) { status.textContent = error.message; }
+  });
+  $("#chooseCloudBackup", grid).addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    pending = null;
+    button.classList.add('hidden');
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    status.textContent = 'Проверяем файл и облачные задачи…';
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('Размер файла превышает 20 МБ');
+      const raw = await file.text();
+      const preview = await api.previewCloudImport(raw);
+      status.textContent = 'К добавлению: ' + preview.added + '. Уже в облаке: ' + preview.skipped + '.';
+      if (preview.added) { pending = raw; button.classList.remove('hidden'); }
+    } catch (error) { status.textContent = error.message; }
+  });
+  button.addEventListener('click', async () => {
+    if (!pending) return;
+    button.disabled = true;
+    try {
+      const result = await api.importCloudTasks(pending);
+      pending = null;
+      button.classList.add('hidden');
+      status.textContent = 'Добавлено: ' + result.added + '. Уже в облаке: ' + result.skipped + '.';
+      refreshCurrent();
+    } catch (error) { status.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+}
+
+function bindTaskBackup(grid) {
+  const input = $("#taskBackupFile", grid);
+  const status = $("#taskBackupStatus", grid);
+  const restore = $("#restoreTasks", grid);
+  let pending = null;
+  let selection = 0;
+  const describe = ({ added, skipped }) => `К добавлению: ${added}. Уже в списке: ${skipped}.`;
+
+  $("#exportTasks", grid).addEventListener('click', () => {
+    try {
+      const url = URL.createObjectURL(new Blob([api.exportLocalTasks()], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vovremya-tasks-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (error) { status.textContent = error.message; }
+  });
+  $("#chooseTaskBackup", grid).addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    input.value = '';
+    const current = ++selection;
+    pending = null;
+    restore.classList.add('hidden');
+    if (!file) return;
+    status.textContent = 'Проверяем файл…';
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('Размер файла превышает 20 МБ');
+      const raw = await file.text();
+      if (current !== selection) return;
+      const preview = api.previewLocalRestore(raw);
+      status.textContent = describe(preview);
+      if (preview.added) {
+        pending = raw;
+        restore.classList.remove('hidden');
+      }
+    } catch (error) {
+      if (current === selection) status.textContent = error.message;
+    }
+  });
+  restore.addEventListener('click', () => {
+    if (pending === null) return;
+    try {
+      const result = api.restoreLocalTasks(pending);
+      pending = null;
+      restore.classList.add('hidden');
+      status.textContent = `Добавлено: ${result.added}. Уже было в списке: ${result.skipped}.`;
+    } catch (error) { status.textContent = error.message; }
+  });
 }
 
 // === Профиль ===
@@ -753,6 +950,7 @@ function doPostpone(id, opts) {
 async function boot() {
   try {
     await api.init();
+    $("#cloudGate").classList.add('hidden');
     const [cats, settings, profile] = await Promise.all([api.categories(), api.getSettings(), api.getProfile()]);
     state.categories = cats;
     state.settings = { ...state.settings, ...settings };
@@ -766,9 +964,29 @@ async function boot() {
     showRoute(["home", "calendar", "tasks", "settings", "profile"].includes(r) ? r : "home");
   } catch (e) {
     console.error(e);
-    toast("Ошибка загрузки: " + e.message, "err");
+    if (api.cloudConfigured) {
+      $("#cloudGate").classList.remove('hidden');
+      $("#cloudLoginStatus").textContent = e.code === 'AUTH_REQUIRED' ? '' : e.message;
+    } else toast("Ошибка загрузки: " + e.message, "err");
   }
 }
+$("#cloudLogin").addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = $("#cloudLoginStatus");
+  const button = event.currentTarget.querySelector('button');
+  button.disabled = true;
+  status.textContent = 'Проверяем вход…';
+  try {
+    await api.signIn($("#cloudEmail").value.trim(), $("#cloudPassword").value);
+    $("#cloudPassword").value = '';
+    await boot();
+  } catch (error) { status.textContent = error.message; }
+  finally { button.disabled = false; }
+});
+$("#cloudChangeKey").addEventListener('click', () => {
+  if (confirm('Отключить облако в этом браузере и открыть местные задачи? Облачные задачи останутся в аккаунте.'))
+    api.disconnectCloud();
+});
 let workerRegistration = null;
 async function registerWorker() {
   if ('serviceWorker' in navigator && isSecureContext) {
@@ -811,6 +1029,16 @@ async function finishTask(task, button) {
     refreshCurrent();
   } catch (error) { button.disabled = false; toast(error.message, 'err'); }
 }
-window.addEventListener('storage', () => { if (api.mode) refreshCurrent(); });
+window.addEventListener('storage', event => {
+  if (api.mode === 'cloud' && event.key === 'vovremya.cloud.session.v1') {
+    location.reload();
+    return;
+  }
+  if (api.mode) refreshCurrent();
+});
+window.addEventListener('focus', () => { if (api.mode === 'cloud') refreshCurrent(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && api.mode === 'cloud') refreshCurrent();
+});
 window.addEventListener('unhandledrejection', e => { toast(e.reason?.message || 'Не удалось выполнить действие', 'err'); });
 boot();

@@ -17,6 +17,19 @@
   <link rel="stylesheet" href="./static/styles.css">
 </head>
 <body>
+  <section id="cloudGate" class="cloud-gate hidden" aria-label="Вход в облако">
+    <form id="cloudLogin" class="settings-card">
+      <h1>Вовремя</h1>
+      <p>Войдите в личный аккаунт, чтобы открыть облачные задачи.</p>
+      <label for="cloudEmail">Электронная почта</label>
+      <input id="cloudEmail" type="email" autocomplete="username" required>
+      <label for="cloudPassword">Пароль</label>
+      <input id="cloudPassword" type="password" autocomplete="current-password" required>
+      <p id="cloudLoginStatus" role="status"></p>
+      <button class="cta" type="submit">Войти</button>
+      <button class="ghost" id="cloudChangeKey" type="button">Отключить облако на этом устройстве</button>
+    </form>
+  </section>
   <header class="topbar">
     <div class="brand">
       <img class="brand-mark" src="./icons/logo.svg" width="32" height="32" alt="">
