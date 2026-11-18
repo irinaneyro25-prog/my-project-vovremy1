@@ -6,7 +6,8 @@ begin
     or has_table_privilege('authenticated', 'public.telegram_deliveries', 'SELECT')
     or has_function_privilege('authenticated', 'public.claim_telegram_deliveries(integer)', 'EXECUTE')
   then raise exception 'Telegram internals are visible to the browser'; end if;
-  if not has_table_privilege('service_role', 'public.telegram_links', 'SELECT')
+  if not has_table_privilege('service_role', 'public.planner_tasks', 'SELECT')
+    or not has_table_privilege('service_role', 'public.telegram_links', 'SELECT')
     or not has_table_privilege('service_role', 'public.telegram_link_requests', 'INSERT')
     or not has_table_privilege('service_role', 'public.telegram_deliveries', 'UPDATE')
   then raise exception 'Telegram Edge Function cannot access its tables'; end if;
