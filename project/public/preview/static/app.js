@@ -841,7 +841,7 @@ function renderProfile() {
 
 // === Боковая панель ===
 function openSidePanel(id) {
-  const taskPromise = id === null ? Promise.resolve({ title: '', description: '', start_at: new Date(Date.now() + 2 * 3600000).toISOString(), category: 'Другое', priority: 3, reminders: state.settings.default_reminders || [60], status: 'planned' }) : api.getTask(id);
+  const taskPromise = id === null ? Promise.resolve({ title: '', description: '', start_at: new Date((Math.floor(Date.now() / 60000) + 1) * 60000).toISOString(), category: 'Другое', priority: 3, reminders: state.settings.default_reminders || [60], status: 'planned' }) : api.getTask(id);
   taskPromise.then(t => {
     if (!t) return;
     state.editingId = id;
@@ -851,7 +851,7 @@ function openSidePanel(id) {
     $("#sideForm").innerHTML = `
       <div class="sp-field"><label>Название</label><input id="spTitle" value="${escapeHtml(t.title)}"></div>
       <div class="sp-field"><label>Описание</label><textarea id="spDesc" rows="3" placeholder="Заметки, детали">${escapeHtml(t.description || '')}</textarea></div>
-      <div class="sp-field"><label>Дата и время</label><input id="spStart" type="datetime-local" value="${toLocalInput(t.start_at)}"></div>
+      <div class="sp-field"><label>Дата и время</label><input id="spStart" type="datetime-local" value="${toLocalInput(t.start_at)}">${id === null ? '<p class="hint">Указано ближайшее время. Выберите, когда начнётся дело.</p>' : ''}</div>
       <div class="sp-field"><label>Категория</label><select id="spCat">${cats.map(c => `<option value="${c.name}" ${c.name===t.category?'selected':''}>${c.emoji} ${c.name}</option>`).join("")}</select></div>
       <div class="sp-field"><label>Приоритет</label>
         <div class="sp-actions-row" id="spPrio">
