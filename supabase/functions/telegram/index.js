@@ -115,7 +115,8 @@ async function runDeliveries() {
   return { claimed: deliveries.length, sent };
 }
 
-Deno.serve(async request => {
+export default {
+ async fetch(request) {
   if (request.method === 'OPTIONS') return response(request, {});
   try {
     const path = new URL(request.url).pathname.split('/').pop();
@@ -188,4 +189,5 @@ Deno.serve(async request => {
   } catch (error) {
     return response(request, { error: String(error.message) }, 500);
   }
-});
+ },
+};

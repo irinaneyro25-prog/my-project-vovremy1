@@ -13,7 +13,6 @@ test('Telegram требует секреты, связывает аккаунт 
   let handler;
   globalThis.Deno = {
     env: { get: name => environment[name] },
-    serve: callback => { handler = callback; },
   };
   const calls = [];
   const marked = [];
@@ -54,7 +53,7 @@ test('Telegram требует секреты, связывает аккаунт 
     }
     throw new Error('Unexpected request: ' + url.href);
   };
-  await import('../../supabase/functions/telegram/index.js');
+  handler = (await import('../../supabase/functions/telegram/index.js')).default.fetch;
   const endpoint = 'https://example.supabase.co/functions/v1/telegram/';
   const unauthorized = await handler(new Request(endpoint + 'run', { method: 'POST' }));
   assert.equal(unauthorized.status, 401);
