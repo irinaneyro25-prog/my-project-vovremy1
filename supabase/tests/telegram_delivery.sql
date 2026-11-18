@@ -30,6 +30,9 @@ $$;
 update public.planner_tasks set status = 'done';
 do $$
 begin
+  if not exists (select 1 from public.telegram_deliveries where status = 'cancelled') then
+    raise exception 'Completion did not cancel the claimed reminder';
+  end if;
   if (select count(*) from public.claim_telegram_deliveries(20)) <> 0 then
     raise exception 'Completed task was claimed again';
   end if;

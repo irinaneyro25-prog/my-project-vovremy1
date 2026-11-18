@@ -27,7 +27,10 @@ export function createPlannerApi() {
   let initialized = false;
   let cloud = null;
   const cloudKey = () => 'vovremya.cloud.preferences.' + cloud.userId;
-  const readCloudLocal = () => JSON.parse(localStorage.getItem(cloudKey()) || '{"settings":{},"profile":{}}');
+  const readCloudLocal = () => {
+    try { return JSON.parse(localStorage.getItem(cloudKey()) || '{"settings":{},"profile":{}}'); }
+    catch { throw new Error('Не удалось прочитать настройки этого браузера'); }
+  };
   const saveCloudLocal = data => localStorage.setItem(cloudKey(), JSON.stringify(data));
   const requireReady = () => { if (!initialized) throw new Error('Хранилище задач ещё не готово. Обновите страницу'); };
   const changed = () => window.dispatchEvent(new Event('plannerchange'));

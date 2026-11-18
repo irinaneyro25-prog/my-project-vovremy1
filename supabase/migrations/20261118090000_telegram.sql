@@ -34,6 +34,28 @@ create table public.telegram_deliveries (
 create index telegram_deliveries_ready on public.telegram_deliveries(next_attempt_at)
   where status in ('pending', 'retry', 'sending');
 
+create function public.cancel_changed_telegram_deliveries()
+returns trigger
+language plpgsql security definer
+set search_path = ''
+as $$
+begin
+  if old.start_at is distinct from new.start_at
+    or old.status is distinct from new.status
+    or old.reminders is distinct from new.reminders then
+    update public.telegram_deliveries
+    set status = 'cancelled'
+    where owner_id = new.owner_id and task_id = new.id
+      and status in ('pending', 'retry', 'sending');
+  end if;
+  return new;
+end;
+$$;
+
+create trigger planner_tasks_cancel_old_telegram
+after update of start_at, status, reminders on public.planner_tasks
+for each row execute function public.cancel_changed_telegram_deliveries();
+
 alter table public.telegram_links enable row level security;
 alter table public.telegram_link_requests enable row level security;
 alter table public.telegram_deliveries enable row level security;
@@ -66,14 +88,17 @@ set search_path = ''
 as $$
 begin
   insert into public.telegram_deliveries(owner_id, task_id, start_at, offset_minutes)
-  select t.owner_id, t.id, t.start_at, offset_value.minutes
+  select distinct t.owner_id, t.id, t.start_at, offset_value.minutes
   from public.planner_tasks t
   join public.telegram_links l on l.owner_id = t.owner_id and l.active
   cross join lateral unnest(t.reminders) as offset_value(minutes)
   where t.status in ('planned', 'in_progress')
     and t.start_at - make_interval(mins => offset_value.minutes) <= now()
     and t.start_at - make_interval(mins => offset_value.minutes) > now() - interval '1 day'
-  on conflict do nothing;
+  on conflict (owner_id, task_id, start_at, offset_minutes) do update
+    set status = 'pending', attempts = 0, claimed_at = null,
+        next_attempt_at = now(), last_error = null
+    where public.telegram_deliveries.status = 'cancelled';
 
   return query
   with candidates as (
@@ -103,6 +128,7 @@ $$;
 
 revoke all on function public.consume_telegram_link(text, bigint) from public, anon, authenticated;
 revoke all on function public.claim_telegram_deliveries(integer) from public, anon, authenticated;
+revoke all on function public.cancel_changed_telegram_deliveries() from public, anon, authenticated;
 grant execute on function public.consume_telegram_link(text, bigint) to service_role;
 grant execute on function public.claim_telegram_deliveries(integer) to service_role;
 

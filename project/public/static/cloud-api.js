@@ -6,7 +6,9 @@ const TASK_FIELDS = ['id', 'title', 'description', 'start_at', 'end_at', 'timezo
 const EDITABLE_FIELDS = TASK_FIELDS.filter(key => !['id', 'created_at', 'updated_at'].includes(key));
 
 export function createCloudApi(publishableKey) {
-  let session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  let session = null;
+  try { session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }
+  catch { localStorage.removeItem(SESSION_KEY); }
   let refreshing = null;
   const table = '/rest/v1/planner_tasks';
   const select = 'select=' + TASK_FIELDS.join(',');
