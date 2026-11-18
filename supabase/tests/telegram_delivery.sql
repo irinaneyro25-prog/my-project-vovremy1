@@ -20,6 +20,10 @@ values ('b8ad3570-3e7d-4b45-9367-ba3080c1e1a1',
   now() + interval '5 minutes', array[5]);
 insert into public.telegram_links(owner_id, chat_id)
 values ('b8ad3570-3e7d-4b45-9367-ba3080c1e1a1', 123456);
+insert into public.planner_tasks(owner_id, id, title, start_at, reminders)
+values ('b8ad3570-3e7d-4b45-9367-ba3080c1e1a1',
+  'a7fa98f0-188f-4c8b-bc72-451004200798', 'Already late',
+  now() + interval '30 minutes', array[60]);
 
 do $$
 begin
@@ -28,6 +32,10 @@ begin
   end if;
   if (select count(*) from public.claim_telegram_deliveries(20)) <> 0 then
     raise exception 'Reminder was claimed twice concurrently';
+  end if;
+  if exists (select 1 from public.telegram_deliveries
+             where task_id = 'a7fa98f0-188f-4c8b-bc72-451004200798') then
+    raise exception 'A newly created task triggered an old reminder';
   end if;
 end;
 $$;

@@ -35,6 +35,13 @@ function escapeHtml(s) {
 }
 function toLocalInput(iso) { return localInput(iso, state.settings.timezone); }
 function fromLocalInput(value) { return localToIso(value, state.settings.timezone); }
+function reminderTimingHint(localStart, reminders) {
+  const start = fromLocalInput(localStart);
+  if (!start || !reminders.length) return '';
+  return reminders.some(minutes => Date.parse(start) - minutes * 60000 <= Date.now())
+    ? 'Время выбранного напоминания уже прошло. Выберите другое время или вариант «Без», иначе сообщение может не прийти.'
+    : '';
+}
 function priorityLabel(p) {
   return ["Срочно", "Важно", "Обычно", "Не срочно", "Когда-нибудь"][(p || 3) - 1] || "Обычно";
 }
@@ -463,7 +470,7 @@ async function quickPreviewFlow(text, container, onSave) {
     <div class="qp-row"><label for="qpRem">Напоминание</label><select id="qpRem">
       <option value="" ${!data.reminders.length ? 'selected' : ''}>Без напоминания</option>
       ${REMINDER_OPTIONS.map(m => `<option value="${m}" ${data.reminders[0] === m ? 'selected' : ''}>${reminderLabel(m)}</option>`).join('')}
-    </select></div>
+    </select><p class="hint" id="qpReminderTiming" role="status"></p></div>
     <div class="qp-actions">
       <button class="cta" id="qpSave">Сохранить</button>
       <button class="ghost" id="qpEdit">Изменить</button>
@@ -474,7 +481,12 @@ async function quickPreviewFlow(text, container, onSave) {
   $("#qpCancel").addEventListener("click", () => { container.classList.add("hidden"); container.innerHTML = ""; });
   $("#qpEdit").addEventListener("click", () => $("#qpTitle").focus());
   let selectedReminders = data.reminders;
-  $("#qpRem").addEventListener("change", e => { selectedReminders = e.target.value ? [Number(e.target.value)] : []; });
+  const updateQuickReminderHint = () => {
+    $("#qpReminderTiming").textContent = reminderTimingHint($("#qpStart").value, selectedReminders);
+  };
+  $("#qpRem").addEventListener("change", e => { selectedReminders = e.target.value ? [Number(e.target.value)] : []; updateQuickReminderHint(); });
+  $("#qpStart").addEventListener("change", updateQuickReminderHint);
+  updateQuickReminderHint();
   $("#qpSave").addEventListener("click", async () => {
     const saveButton = $("#qpSave");
     if (saveButton.disabled) return;
@@ -851,6 +863,7 @@ function openSidePanel(id) {
           <button type="button" class="chip ${!t.reminders?.length?'active':''}" data-r="">Без</button>
           ${REMINDER_OPTIONS.map(m => `<button type="button" class="chip ${t.reminders?.includes(m)?'active':''}" data-r="${m}">${reminderLabel(m)}</button>`).join('')}
         </div>
+        <p class="hint" id="spReminderTiming" role="status"></p>
       </div>
       <div class="sp-field ${id === null ? 'hidden' : ''}"><label>Действия</label>
         <div class="sp-actions-row">
@@ -865,11 +878,17 @@ function openSidePanel(id) {
       $$("#spPrio .chip").forEach(x => x.classList.toggle("active", x === b));
     }));
     let selectedReminders = [...(t.reminders || [])];
+    const updateSideReminderHint = () => {
+      $("#spReminderTiming").textContent = reminderTimingHint($("#spStart").value, selectedReminders);
+    };
     $$("#spRem .chip").forEach(b => b.addEventListener("click", () => {
       const minutes = Number(b.dataset.r);
       selectedReminders = minutes ? [minutes] : [];
       $$("#spRem .chip").forEach(x => x.classList.toggle("active", x.dataset.r ? selectedReminders.includes(Number(x.dataset.r)) : !selectedReminders.length));
+      updateSideReminderHint();
     }));
+    $("#spStart").addEventListener("change", updateSideReminderHint);
+    updateSideReminderHint();
     $("#spPostpone").addEventListener("click", () => openPostponeMenu(id));
     $("#spDone").addEventListener("click", () => {
       if (t.status === "done") api.reopenTask(id).then(() => { closeSidePanel(); refreshCurrent(); });
