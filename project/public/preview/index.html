@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="robots" content="noindex,nofollow">
   <title>Вовремя — личный планировщик</title>
   <meta name="description" content="Спокойный день. Всё важное — вовремя. Личный планировщик задач и календарь.">
   <meta property="og:title" content="Вовремя — личный планировщик">
@@ -11,7 +10,7 @@
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
   <meta name="theme-color" content="#f6efe6">
-  <link rel="icon" href="./icons/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="./icons/new-logo.png" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="preload" href="./static/fonts/manrope.ttf" as="font" type="font/ttf" crossorigin>
@@ -33,7 +32,7 @@
   </section>
   <header class="topbar">
     <div class="brand">
-      <img class="brand-mark" src="./icons/logo.svg" width="32" height="32" alt="">
+      <img class="brand-mark" src="./icons/new-logo.png" width="32" height="32" alt="">
       <span class="brand-name">Вовремя</span>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Меню">☰</button>
@@ -41,6 +40,7 @@
       <a href="#home" data-route="home" class="nav-item active">Главная</a>
       <a href="#calendar" data-route="calendar" class="nav-item">Календарь</a>
       <a href="#tasks" data-route="tasks" class="nav-item">Все задачи</a>
+      <a href="#overview" data-route="overview" class="nav-item">Обзор дня</a>
       <a href="#profile" data-route="profile" class="nav-item">Профиль</a>
       <a href="#settings" data-route="settings" class="nav-item">Настройки</a>
     </nav>
@@ -48,26 +48,18 @@
       <span class="theme-icon" id="themeIcon" data-icon="theme"></span>
       <span id="themeLabel">Авто</span>
     </button>
+    <a href="#profile" class="profile-pill" id="profilePill" title="Открыть профиль"><span class="profile-avatar" id="profileAvatar">В</span><span class="profile-name" id="profileName">Гость</span></a>
   </header>
 
   <main id="app">
     <section class="route" id="home" data-view="home">
       <div class="hero">
         <div class="hero-text">
-          <div class="hero-brand"><img src="./icons/logo.svg" width="60" height="60" alt=""><h1>Вовремя</h1></div>
-          <p class="brand-slogan">Спокойный день. Всё важное — вовремя.</p>
           <h2 class="hero-greeting" id="heroGreeting">Здравствуйте</h2>
           <p class="hero-sub" id="heroDate">—</p>
           <p class="hero-hint" id="heroHint"></p>
-          <div class="hero-summary" id="heroSummary"></div>
         </div>
-        <div class="hero-actions">
-          <a href="#profile" class="profile-pill" id="profilePill" title="Открыть профиль">
-            <span class="profile-avatar" id="profileAvatar">В</span>
-            <span class="profile-name" id="profileName">Гость</span>
-          </a>
-          <button class="cta hero-cta" id="openQuick"><span data-icon="plus"></span> Добавить задачу</button>
-        </div>
+
       </div>
 
       <div class="quick-inline" id="quickInline">
@@ -75,6 +67,7 @@
           <span class="quick-input-icon" data-icon="spark"></span>
           <input id="quickInlineInput" aria-label="Быстрый ввод задачи" placeholder="Например: завтра в 10 позвонить маме" />
           <button class="ghost quick-inline-btn" id="quickInlineBtn" aria-label="Проверить быстрый ввод">Проверить <span data-icon="arrow"></span></button>
+          <button class="cta hero-cta" id="openQuick"><span data-icon="plus"></span> Добавить задачу</button>
         </div>
         <p class="quick-hint">Быстрый ввод · укажите дело, день и время. Enter — проверить.</p>
         <div class="quick-preview hidden" id="quickInlinePreview"></div>
@@ -89,27 +82,14 @@
         <ul id="missedList"></ul>
       </section>
 
-      <div class="buckets" id="buckets">
-        <div class="bucket bucket-now">
-          <h3 class="bucket-title">Сейчас <span class="count" id="cntNow">0</span></h3>
-          <div class="bucket-list" data-bucket="now"></div>
-        </div>
-        <div class="bucket bucket-soon">
-          <h3 class="bucket-title">Скоро <span class="count" id="cntSoon">0</span></h3>
-          <div class="bucket-list" data-bucket="soon"></div>
-        </div>
-        <div class="bucket bucket-later">
-          <h3 class="bucket-title">Позже сегодня <span class="count" id="cntLater">0</span></h3>
-          <div class="bucket-list" data-bucket="later"></div>
-        </div>
-        <div class="bucket bucket-overdue">
-          <h3 class="bucket-title">Просроченные <span class="count" id="cntOverdue">0</span></h3>
-          <div class="bucket-list" data-bucket="overdue"></div>
-        </div>
-        <div class="bucket bucket-done">
-          <h3 class="bucket-title">Завершённые сегодня <span class="count" id="cntDone">0</span></h3>
-          <div class="bucket-list" data-bucket="done"></div>
-        </div>
+      <section id="nextTask" class="next-task"></section>
+      <div class="hero-summary" id="heroSummary"></div>
+      <div id="homeEmpty" class="home-empty hidden"></div>
+      <div class="buckets priority-grid" id="buckets">
+        <section class="bucket priority-bucket" data-priority="1"><h3><button type="button" class="priority-heading">Срочно и важно <span class="count" id="cntP1">0</span></button></h3><div class="bucket-list" data-bucket="p1"></div></section>
+        <section class="bucket priority-bucket" data-priority="2"><h3><button type="button" class="priority-heading">Важно, не срочно <span class="count" id="cntP2">0</span></button></h3><div class="bucket-list" data-bucket="p2"></div></section>
+        <section class="bucket priority-bucket" data-priority="3"><h3><button type="button" class="priority-heading">Срочно, не важно <span class="count" id="cntP3">0</span></button></h3><div class="bucket-list" data-bucket="p3"></div></section>
+        <section class="bucket priority-bucket" data-priority="4"><h3><button type="button" class="priority-heading">Можно позже <span class="count" id="cntP4">0</span></button></h3><div class="bucket-list" data-bucket="p4"></div></section>
       </div>
     </section>
 
@@ -146,9 +126,21 @@
         <button class="chip" data-filter="done">Выполненные</button>
         <button class="chip" data-filter="undated">Без даты</button>
         </div>
-      <div class="task-list" id="taskList"></div>
+      <div class="task-filter-controls">
+        <label>Категория <select id="categoryFilter"><option value="">Все категории</option></select></label>
+        <label>Важность <select id="importanceFilter"><option value="">Любая</option><option value="yes">Важные</option><option value="no">Остальные</option></select></label>
+        <label>Срочность <select id="urgencyFilter"><option value="">Любая</option><option value="yes">Срочные</option><option value="no">Не срочные</option></select></label>
+        <button id="resetTaskFilters" type="button" class="ghost">Сбросить фильтр</button>
+      </div>
+      <h3 id="taskFilterTitle"></h3><div class="task-list" id="taskList"></div>
     </section>
 
+    <section class="route hidden" id="overview" data-view="overview">
+      <h2>Обзор дня</h2>
+      <div class="overview-controls"><label>Дата <input id="overviewDate" type="date"></label><label>Порядок <select id="overviewOrder"><option value="priority">По важности</option><option value="time">По времени</option></select></label><button id="makeOverview" class="cta" type="button">Сформировать отчёт</button></div>
+      <div id="overviewContent"></div>
+      <div class="overview-actions"><button id="overviewPng" type="button">Сохранить PNG</button><button id="overviewPrint" type="button">Печать / PDF</button><button id="overviewCopy" type="button">Копировать текст</button><button id="overviewShare" type="button">Поделиться</button></div>
+    </section>
     <section class="route hidden" id="profile" data-view="profile">
       <div class="viewbar"><h2>Профиль</h2></div>
       <div class="profile-grid" id="profileGrid"></div>
@@ -161,7 +153,7 @@
   </main>
 
   <div class="side-panel-overlay" id="sideOverlay"></div>
-  <aside class="side-panel" id="sidePanel" aria-hidden="true">
+  <aside class="side-panel" id="sidePanel" aria-hidden="true" inert>
     <div class="side-panel-head">
       <h3 id="sideTitle">Задача</h3>
       <button class="icon-btn" id="sideClose" title="Закрыть">✕</button>

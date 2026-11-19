@@ -43,7 +43,7 @@ function reminderTimingHint(localStart, reminders) {
     : '';
 }
 function priorityLabel(p) {
-  return ["Срочно", "Важно", "Обычно", "Не срочно", "Когда-нибудь"][(p || 3) - 1] || "Обычно";
+  return ["Срочно и важно", "Важно, не срочно", "Срочно, не важно", "Можно позже", "Можно позже"][(p || 3) - 1] || "Срочно, не важно";
 }
 function reminderLabel(min) {
   if (min < 60) return `за ${min} мин`;
@@ -63,15 +63,24 @@ const state = {
   settings: { timezone: "Europe/Moscow", theme_mode: "auto", default_reminders: [60], reminders_enabled: false },
   profile: { name: null, occupation: null, avatar_emoji: "🌿", bio: null },
   categories: [],
-  calMode: "week",
+  calMode: window.innerWidth <= 720 ? "month" : "week",
   calAnchor: new Date(),
   filter: "all",
   search: "",
+  categoryFilter: "",
+  importanceFilter: "",
+  urgencyFilter: "",
+  priorityFilter: 0,
   tasks: [],
   editingId: null,
   route: "home",
 };
 const CAT_FALLBACK = { name: "Другое", emoji: "⚪", color: "#9aa0aa" };
+const CATEGORY_ICONS = { 'Медицина': 0, 'Здоровье': 0, 'Семья': 1, 'Работа': 2, 'Дом': 3, 'Дети': 4 };
+function categoryBadge(name) {
+  const index = CATEGORY_ICONS[name];
+  return index === undefined ? '' : `<span class="category-icon icon-${index}" aria-hidden="true"></span>`;
+}
 function catInfo(name) { return state.categories.find(c => c.name === name) || CAT_FALLBACK; }
 function categoryOptions() { return state.categories.length ? state.categories : [CAT_FALLBACK]; }
 
@@ -91,7 +100,7 @@ function effectiveTheme(mode) {
   if (mode === "light") return "light";
   if (mode === "dark") return "dark";
   const h = new Date().getHours();
-  return (h >= 19 || h < 7) ? "dark" : "light";
+  return (h >= 20 || h < 7) ? "dark" : "light";
 }
 function applyTheme() {
   const t = effectiveTheme(state.settings.theme_mode || "auto");
@@ -100,6 +109,7 @@ function applyTheme() {
   $("#themeLabel").textContent = labels[state.settings.theme_mode || "auto"] || "Авто";
   $("#themeIcon").innerHTML = icon("theme");
 }
+setInterval(() => { if (state.settings.theme_mode === 'auto') applyTheme(); }, 60000);
 $("#themeToggle").addEventListener("click", () => {
   const cur = state.settings.theme_mode || "auto";
   const next = cur === "auto" ? "light" : cur === "light" ? "dark" : "auto";
@@ -116,12 +126,57 @@ function greetingText() {
 
   return name ? `${part}, ${name}` : part;
 }
+function avatarDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('vovremya-avatar', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('photos');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+async function saveAvatar(file) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 512;
+  const context = canvas.getContext('2d');
+  const ratio = Math.max(512 / bitmap.width, 512 / bitmap.height);
+  const width = bitmap.width * ratio, height = bitmap.height * ratio;
+  context.drawImage(bitmap, (512 - width) / 2, (512 - height) / 2, width, height);
+  bitmap.close();
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .84));
+  const database = await avatarDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction('photos', 'readwrite');
+    transaction.objectStore('photos').put(blob, 'profile');
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+async function loadAvatar() {
+  const database = await avatarDatabase();
+  const blob = await new Promise((resolve, reject) => {
+    const request = database.transaction('photos').objectStore('photos').get('profile');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  database.close();
+  const avatar = $('#profileAvatar');
+  if (blob) {
+    const url = URL.createObjectURL(blob);
+    avatar.replaceChildren();
+    const image = document.createElement('img'); image.src = url; image.alt = '';
+    image.onload = () => URL.revokeObjectURL(url);
+    avatar.append(image);
+  }
+}
 function applyProfile() {
   const p = state.profile || {};
   const name = p.name?.trim();
   $("#heroGreeting").textContent = greetingText();
   $("#profileName").textContent = name || "Гость";
-  $("#profileAvatar").textContent = p.avatar_emoji || (name ? name[0].toUpperCase() : "В");
+  $("#profileAvatar").textContent = name ? name[0].toUpperCase() : "В";
+  loadAvatar().catch(() => {});
   $("#heroDate").textContent = fmt.dayMonth(new Date().toISOString(), state.settings.timezone);
 }
 $("#profilePill").addEventListener("click", () => {
@@ -144,6 +199,7 @@ function showRoute(name) {
   // маршрут "quick" больше не используется — быстрый ввод живёт инлайном на главной
   if (name === "settings") renderSettings();
   if (name === "profile") renderProfile();
+  if (name === "overview") renderOverview();
 }
 
 $("#navToggle").addEventListener("click", () => {
@@ -153,7 +209,7 @@ $$(".nav-item").forEach(a => a.addEventListener("click", () => $("#nav").classLi
 
 window.addEventListener("hashchange", () => {
   const r = (location.hash || "#home").slice(1);
-  if (["home", "calendar", "tasks", "settings", "profile"].includes(r)) showRoute(r);
+  if (["home", "calendar", "tasks", "settings", "profile", "overview"].includes(r)) showRoute(r);
 });
 function refreshCurrent() {
   if (state.route === "home") renderHome();
@@ -169,11 +225,11 @@ function compactTaskCard(t) {
   wrap.className = "task-card" + (t.status === "done" ? " done" : "") + (isOverdue ? " overdue" : "");
   wrap.dataset.id = t.id;
   wrap.innerHTML = `
-    <div class="cat-stripe" style="background:${c.color}"></div>
+    <div class="cat-stripe" ></div>
     <div class="body">
       <div class="title">${escapeHtml(t.title)}</div>
       <div class="meta">
-        <span class="tag" style="background:${c.color}">${escapeHtml(c.name)}</span>
+        <span class="tag">${categoryBadge(c.name)}${escapeHtml(c.name)}</span>
         <span class="meta-item">${icon("clock")} ${escapeHtml(fmt.dateTime(t.start_at, state.settings.timezone))}</span>
         <span class="prio-dot p${t.priority || 3}" title="${priorityLabel(t.priority)}"></span>
         ${(t.reminders && t.reminders.length) ? `<span class="meta-item">${icon("bell")} ${t.reminders.length}</span>` : ""}
@@ -205,11 +261,11 @@ function bigTaskCard(t) {
   wrap.className = "task-card" + (t.status === "done" ? " done" : "") + (isOverdue ? " overdue" : "");
   wrap.dataset.id = t.id;
   wrap.innerHTML = `
-    <div class="cat-stripe" style="background:${c.color}"></div>
+    <div class="cat-stripe" ></div>
     <div class="body">
       <div class="title">${escapeHtml(t.title)}</div>
       <div class="meta">
-        <span class="tag" style="background:${c.color}">${escapeHtml(c.name)}</span>
+        <span class="tag">${categoryBadge(c.name)}${escapeHtml(c.name)}</span>
         <span class="meta-item">${icon("clock")} ${escapeHtml(fmt.dateTime(t.start_at, state.settings.timezone))}</span>
         <span class="prio-dot p${t.priority || 3}" title="${priorityLabel(t.priority)}"></span>
             ${(t.reminders && t.reminders.length) ? `<span class="meta-item">${icon("bell")} ${t.reminders.map(reminderLabel).join(", ")}</span>` : ""}
@@ -240,61 +296,80 @@ function bigTaskCard(t) {
 }
 
 // === Главная ===
+function priorityGroup(task) { return Math.min(4, Number(task.priority) || 3); }
 function renderHome() {
   applyProfile();
-  Promise.all([api.home(), api.categories()]).then(async ([data, cats]) => {
-    state.categories = cats;
-    $("#heroDate").textContent = fmt.dayMonth(new Date().toISOString(), state.settings.timezone);
-    const todayTasks = await api.listTasks("today");
-    const total = todayTasks.length;
-    const postponed = (data.overdue?.length || 0);
-    const important = todayTasks.filter(t => t.priority <= 2 && t.status !== "done").length;
-    const summary = $("#heroSummary");
-    summary.innerHTML = "";
-    const hintEl = $("#heroHint");
-    if (hintEl) {
-      const name = state.profile?.name?.trim();
-      const overloaded = (data.overdue || []).length > 0;
-      const busy = total >= 6;
-      const free = total === 0;
-      let txt;
-      if (free) txt = name ? `${name}, сегодня всё спокойно` : "Сегодня всё спокойно";
-      else if (overloaded) txt = name ? `${name}, есть просроченные дела — разложим по шагам` : "Есть просроченные дела — разложим по шагам";
-      else if (busy) txt = name ? `${name}, сегодня день плотный, но всё реально разложить по шагам` : "Сегодня день плотный, но всё реально разложить по шагам";
-      else txt = name ? `${name}, сегодня спокойный день — ${total} задач` : `Сегодня спокойный день — ${total} задач`;
-      hintEl.textContent = txt;
-    }
-    const pills = [
-      { label: "Сегодня задач", value: total },
-      { label: "Важных", value: important },
-      { label: "Выполнено", value: data.done_today.length },
-      { label: "Просрочено", value: postponed },
+  Promise.all([api.listTasks(), api.categories()]).then(([tasks, categories]) => {
+    state.categories = categories;
+    const today = dateKey(new Date(), state.settings.timezone);
+    const todayTasks = tasks.filter(t => dateKey(t.start_at, state.settings.timezone) === today && t.status !== 'cancelled');
+    const stats = [
+      { label: 'Сегодня', value: todayTasks.length, filter: 'today' },
+      { label: 'Важные', value: tasks.filter(t => t.priority <= 2 && t.status !== 'done').length, filter: 'important' },
+      { label: 'Просрочено', value: tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && Date.parse(t.start_at) < Date.now()).length, filter: 'overdue' },
+      { label: 'Выполнено', value: todayTasks.filter(t => t.status === 'done').length, filter: 'done' },
     ];
-    for (const p of pills) {
-      const el = document.createElement("span");
-      el.className = "pill";
-      el.innerHTML = `<strong>${p.value}</strong> ${p.label}`;
-      summary.appendChild(el);
+    $('#heroSummary').replaceChildren(...stats.map(stat => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'pill' + (state.filter === stat.filter ? ' active' : '');
+      button.innerHTML = '<strong>' + stat.value + '</strong> ' + stat.label;
+      button.addEventListener('click', () => {
+        state.filter = stat.filter;
+        location.hash = '#tasks';
+        showRoute('tasks');
+        if (window.innerWidth <= 720) $('#taskList').scrollIntoView({ behavior: 'smooth' });
+      });
+      return button;
+    }));
+    const upcoming = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && Date.parse(t.start_at) >= Date.now())
+      .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at));
+    const next = $('#nextTask');
+    next.replaceChildren();
+    if (upcoming.length) {
+      const task = upcoming[0];
+      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><strong></strong><p></p><button type="button" class="ghost">Открыть</button><button type="button" class="cta">Выполнить</button>';
+      next.querySelector('strong').textContent = task.title + ' · ' + fmt.time(task.start_at, state.settings.timezone);
+      next.querySelector('p').textContent = task.category + ' · ' + priorityLabel(task.priority);
+      next.querySelector('.ghost').onclick = () => openSidePanel(task.id);
+      next.querySelector('.cta').onclick = () => finishTask(task, next.querySelector('.cta'));
     }
-    fillBucket("now", data.now_tasks || [], "На ближайший час ничего не запланировано");
-    fillBucket("soon", data.soon_tasks || [], "Скоро ничего не запланировано");
-    fillBucket("later", data.later_today || [], "Сегодня всё спокойно");
-    fillBucket("overdue", data.overdue || [], "Просроченных задач нет");
-    fillBucket("done", data.done_today || [], "Завершённых пока нет");
-  }).catch(e => toast("Не удалось загрузить данные: " + e.message, "err"));
-}
-function fillBucket(name, items, emptyText) {
-  const list = $(`[data-bucket="${name}"]`);
-  list.innerHTML = "";
-  $("#cnt" + name.charAt(0).toUpperCase() + name.slice(1)).textContent = items.length;
-  if (!items.length) {
-    const e = document.createElement("div");
-    e.className = "bucket-empty";
-    e.textContent = emptyText;
-    list.appendChild(e);
-    return;
-  }
-  for (const t of items) list.appendChild(compactTaskCard(t));
+    const homeEmpty = $('#homeEmpty');
+    const remaining = tasks.filter(task => task.status !== 'done' && task.status !== 'cancelled');
+    homeEmpty.classList.toggle('hidden', remaining.length > 0);
+    $('#buckets').classList.toggle('hidden', remaining.length === 0);
+    if (!remaining.length) {
+      homeEmpty.innerHTML = tasks.some(task => task.status === 'done')
+        ? '<h3>На сегодня всё</h3><p>Можно спокойно завершать день.</p><button class="cta" type="button">Добавить задачу</button>'
+        : '<h3>Сегодня ничего не запланировано</h3><button class="cta" type="button">Добавить задачу</button>';
+      homeEmpty.querySelector('button').onclick = () => openSidePanel(null);
+    }
+    for (let group = 1; group <= 4; group++) {
+      $('[data-priority="' + group + '"] .priority-heading').onclick = () => {
+        state.filter = 'all'; state.priorityFilter = group;
+        location.hash = '#tasks'; showRoute('tasks');
+      };
+      const active = tasks.filter(t => t.status !== 'cancelled' && priorityGroup(t) === group);
+      const open = active.filter(t => t.status !== 'done');
+      const done = active.filter(t => t.status === 'done');
+      const list = $('[data-bucket="p' + group + '"]');
+      list.replaceChildren(...open.slice(0, 4).map(compactTaskCard));
+      $('#cntP' + group).textContent = open.length;
+      if (open.length > 4) {
+        const more = document.createElement('button');
+        more.className = 'ghost';
+        more.textContent = 'Показать ещё ' + (open.length - 4);
+        more.onclick = () => more.replaceWith(...open.slice(4).map(compactTaskCard));
+        list.append(more);
+      }
+      if (done.length) {
+        const complete = document.createElement('details');
+        complete.innerHTML = '<summary>Выполнено ' + done.length + '</summary>';
+        complete.append(...done.map(compactTaskCard));
+        list.append(complete);
+      }
+    }
+  }).catch(error => toast('Не удалось загрузить данные: ' + error.message, 'err'));
 }
 
 // === Календарь ===
@@ -336,6 +411,11 @@ async function renderWeek() {
     } else {
       for (const t of day.tasks) cell.appendChild(makeCalTask(t));
     }
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'calendar-add'; add.textContent = '+';
+    add.setAttribute('aria-label', 'Добавить задачу на ' + day.date);
+    add.onclick = () => openSidePanel(null, fromLocalInput(day.date + 'T12:00'));
+    cell.appendChild(add);
     row.appendChild(cell);
   }
   wrap.appendChild(row);
@@ -364,6 +444,11 @@ async function renderMonth() {
   for (const cell of data.cells) {
     const el = document.createElement("div");
     el.className = "cal-cell" + (cell.is_today ? " today" : "") + (cell.in_current_month ? "" : " dim");
+    el.addEventListener('click', event => {
+      if (event.target.closest('button, .cal-task')) return;
+      state.calAnchor = new Date(cell.date + 'T12:00:00');
+      state.calMode = 'day'; renderCalendar();
+    });
     const d = new Date(cell.date + "T00:00:00");
     const num = document.createElement("div");
     num.className = "num"; num.textContent = d.getDate(); el.appendChild(num);
@@ -375,6 +460,11 @@ async function renderMonth() {
       more.textContent = `+${cell.tasks.length - 3} ещё`;
       el.appendChild(more);
     }
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'calendar-add'; add.textContent = '+';
+    add.setAttribute('aria-label', 'Добавить задачу на ' + cell.date);
+    add.onclick = () => openSidePanel(null, fromLocalInput(cell.date + 'T12:00'));
+    el.appendChild(add);
     row.appendChild(el);
   }
   wrap.appendChild(row);
@@ -391,12 +481,27 @@ async function renderDay() {
   if (!data.tasks.length) {
     const e = document.createElement("div");
     e.className = "empty-state";
-    e.innerHTML = `На этот день ничего не запланировано`;
+    e.innerHTML = '<p>На этот день ничего не запланировано.</p><button class="cta" type="button">Добавить задачу</button>';
+    e.querySelector('button').onclick = () => openSidePanel(null, fromLocalInput(data.date + 'T12:00'));
     list.appendChild(e);
   } else {
     for (const t of data.tasks) list.appendChild(bigTaskCard(t));
   }
-  cont.appendChild(list);
+  const add = document.createElement('button');
+  add.type = 'button'; add.className = 'cta'; add.textContent = 'Добавить задачу на ' + fmt.date(data.date + 'T00:00:00', tz);
+  add.onclick = () => openSidePanel(null, fromLocalInput(data.date + 'T12:00'));
+  const slots = document.createElement('div');
+  slots.className = 'calendar-slots';
+  for (let hour = 8; hour <= 20; hour++) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'ghost';
+    const time = String(hour).padStart(2, '0') + ':00';
+    button.textContent = time + ' ＋';
+    button.setAttribute('aria-label', 'Добавить задачу на ' + data.date + ' в ' + time);
+    button.onclick = () => openSidePanel(null, fromLocalInput(data.date + 'T' + time));
+    slots.append(button);
+  }
+  cont.append(add, list, slots);
   $("#calTitle").textContent = fmt.dayMonth(data.date + "T00:00:00", tz);
 }
 function makeCalTask(t) {
@@ -427,19 +532,42 @@ let taskRenderSequence = 0;
 async function renderTasks() {
   const sequence = ++taskRenderSequence;
   const list = $("#taskList");
-  const tasks = await api.listTasks(state.filter, state.search);
+  let tasks = await api.listTasks(['important', 'overdue'].includes(state.filter) ? 'all' : state.filter, state.search);
+  if (state.filter === 'important') tasks = tasks.filter(t => t.priority <= 2 && t.status !== 'done');
+  if (state.filter === 'overdue') tasks = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && Date.parse(t.start_at) < Date.now());
+  if (state.priorityFilter) tasks = tasks.filter(t => priorityGroup(t) === state.priorityFilter);
+  if (state.categoryFilter) tasks = tasks.filter(t => t.category === state.categoryFilter);
+  if (state.importanceFilter) tasks = tasks.filter(t => (t.priority <= 2) === (state.importanceFilter === 'yes'));
+  if (state.urgencyFilter) tasks = tasks.filter(t => ([1, 3].includes(t.priority)) === (state.urgencyFilter === 'yes'));
+  const categorySelect = $('#categoryFilter');
+  const values = [...new Set([...state.categories.map(c => c.name), ...tasks.map(t => t.category)])];
+  categorySelect.innerHTML = '<option value="">Все категории</option>' + values.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('');
+  categorySelect.value = state.categoryFilter;
+  $('#importanceFilter').value = state.importanceFilter;
+  $('#urgencyFilter').value = state.urgencyFilter;
+  $('#taskFilterTitle').textContent = (state.categoryFilter || ({ important: 'Важные', overdue: 'Просрочено', today: 'Сегодня', done: 'Выполнено' }[state.filter] || 'Все категории')) + ' · ' + tasks.length + ' задач';
   if (sequence !== taskRenderSequence) return;
   state.tasks = tasks;
   list.innerHTML = "";
   if (!state.tasks.length) {
     const e = document.createElement("div");
     e.className = "empty-state";
-    e.innerHTML = `Здесь пока пусто. Можно добавить новую задачу.`;
+    e.innerHTML = '<p>Здесь пока пусто.</p><button class="cta" type="button">Добавить задачу</button>';
+    e.querySelector('button').onclick = () => openSidePanel(null);
     list.appendChild(e);
     return;
   }
   for (const t of state.tasks) list.appendChild(bigTaskCard(t));
 }
+for (const [id, key] of [['categoryFilter', 'categoryFilter'], ['importanceFilter', 'importanceFilter'], ['urgencyFilter', 'urgencyFilter']]) {
+  $('#' + id).addEventListener('change', event => { state[key] = event.target.value; renderTasks(); });
+}
+$('#resetTaskFilters').addEventListener('click', () => {
+  state.categoryFilter = state.importanceFilter = state.urgencyFilter = '';
+  state.priorityFilter = 0;
+  state.filter = 'all';
+  renderTasks();
+});
 $("#filters").addEventListener("click", (e) => {
   const c = e.target.closest(".chip");
   if (!c) return;
@@ -535,7 +663,7 @@ async function renderSettings() {
   const timezones = ["Europe/Moscow", "Europe/Kaliningrad", "Europe/Samara", "Asia/Yekaterinburg", "Asia/Novosibirsk", "Asia/Krasnoyarsk", "Asia/Irkutsk", "Asia/Yakutsk", "Asia/Vladivostok", "Asia/Magadan", "Asia/Kamchatka"];
   g.innerHTML = `
     <div class="settings-card">
-      <h3>Оформление</h3>
+      <h3>Оформление</h3><p>Авто: светлая днём, вечерняя после 20:00.</p>
       <div class="field"><label>Тема</label>
         <div class="inline">
           ${["auto", "light", "dark"].map(m => `<button class="chip ${s.theme_mode===m?'active':''}" data-tm="${m}">${m==='auto'?'Авто':m==='light'?'Светлая':'Тёмная'}</button>`).join("")}
@@ -563,7 +691,7 @@ async function renderSettings() {
     <div class="settings-card">
       <h3>Хранение задач</h3>
       <p class="hint">${api.mode === 'cloud' ? 'Задачи сохраняются в облаке. При ошибке связи изменения не сохраняются. Профиль, тема и настройки браузерных уведомлений пока относятся к этому устройству.' : api.mode === 'local' ? 'Задачи сохранены в этом браузере. Они доступны без сервера, но не синхронизируются между устройствами. Очистка данных сайта удалит их.' : 'Задачи сохранены на сервере. Напоминания и разрешение на уведомления настраиваются отдельно в каждом браузере.'}</p>
-      ${api.mode === 'local' ? `<div class="field"><label for="cloudKey">Publishable key Supabase</label><input id="cloudKey" autocomplete="off" placeholder="sb_publishable_…"><p class="hint">Ключ можно найти в Supabase → Project Settings → API Keys. Он хранится только в этом браузере. После подключения войдите в созданный личный аккаунт.</p><button class="ghost" id="connectCloud">Подключить облако</button><p id="connectCloudStatus" role="status"></p></div>` : ''}
+      ${api.mode === 'local' ? `<details><summary>Расширенная настройка · для разработчика</summary><div class="field"><label for="cloudKey">Publishable key Supabase</label><input id="cloudKey" autocomplete="off" placeholder="sb_publishable_…"><p class="hint">Ключ можно найти в Supabase → Project Settings → API Keys. Он хранится только в этом браузере. После подключения войдите в созданный личный аккаунт.</p><button class="ghost" id="connectCloud">Подключить облако</button><p id="connectCloudStatus" role="status"></p></div></details>` : ''}
       ${api.mode === 'cloud' ? `<button class="ghost" id="cloudSignOut">Выйти из облачного аккаунта</button>` : ''}
     </div>
     ${api.mode === 'local' ? `
@@ -607,11 +735,40 @@ async function renderSettings() {
     <div class="settings-card">
       <h3>Категории</h3>
       <div class="inline">
-        ${cats.map(c => `<span class="tag" style="background:${c.color}">${escapeHtml(c.name)}</span>`).join("")}
+        ${cats.map(c => `<span class="tag">${categoryBadge(c.name)}${escapeHtml(c.name)}</span>`).join("")}
       </div>
-      <p class="hint" style="color:var(--text-mute);margin:8px 0 0;font-size:13px">Цвет и эмодзи закреплены за категорией и одинаковы во всех формах.</p>
+      <div class="field"><label for="newCategoryName">Новая категория</label><input id="newCategoryName" maxlength="20" placeholder="Название до 20 символов"></div>
+      <div class="field"><label for="newCategoryIcon">Иконка</label><select id="newCategoryIcon"><option value="medical">Медицина</option><option value="family">Семья</option><option value="work">Работа</option><option value="home">Дом</option><option value="kids">Дети</option></select></div>
+      <div class="field"><label for="newCategoryColor">Вспомогательный оттенок</label><input id="newCategoryColor" type="color" value="#8b77ad"></div>
+      <button class="ghost" id="addCategory" type="button">Добавить категорию</button>
+      <div id="categoryManage">${cats.map(c => `<div class="category-manage"><span>${escapeHtml(c.name)}</span><button type="button" data-category-up="${escapeHtml(c.name)}" aria-label="Поднять категорию ${escapeHtml(c.name)}">↑</button><button type="button" data-category-down="${escapeHtml(c.name)}" aria-label="Опустить категорию ${escapeHtml(c.name)}">↓</button><button type="button" data-category-rename="${escapeHtml(c.name)}">Переименовать</button><button type="button" data-category-archive="${escapeHtml(c.name)}">Архивировать</button></div>`).join('')}</div>
     </div>
   `;
+  $('#addCategory', g).addEventListener('click', async () => {
+    try {
+      api.saveCategory({ name: $('#newCategoryName', g).value, icon: $('#newCategoryIcon', g).value, color: $('#newCategoryColor', g).value });
+      state.categories = await api.categories();
+      renderSettings();
+    } catch (error) { toast(error.message, 'err'); }
+  });
+  for (const [attribute, direction] of [['data-category-up', -1], ['data-category-down', 1]]) {
+    g.querySelectorAll('[' + attribute + ']').forEach(button => button.addEventListener('click', async () => {
+      await api.moveCategory(button.getAttribute(attribute), direction);
+      state.categories = await api.categories(); renderSettings();
+    }));
+  }
+  g.querySelectorAll('[data-category-rename]').forEach(button => button.addEventListener('click', async () => {
+    const current = button.dataset.categoryRename;
+    const name = prompt('Новое название категории', current);
+    if (!name || name === current) return;
+    try { await api.renameCategory(current, name); state.categories = await api.categories(); renderSettings(); }
+    catch (error) { toast(error.message, 'err'); }
+  }));
+  g.querySelectorAll('[data-category-archive]').forEach(button => button.addEventListener('click', async () => {
+    api.saveCategory({ name: button.dataset.categoryArchive, archived: true });
+    state.categories = await api.categories();
+    renderSettings();
+  }));
   g.querySelectorAll("[data-tm]").forEach(b => b.addEventListener("click", () => {
     state.settings.theme_mode = b.dataset.tm;
     api.saveSettings({ theme_mode: b.dataset.tm });
@@ -798,7 +955,8 @@ function renderProfile() {
       <h3>Имя и аватар</h3>
       <div class="field"><label>Имя</label><input id="profileNameInput" value="${escapeHtml(p.name || '')}" placeholder="Как тебя зовут?"></div>
       <div class="field"><label>Чем занимаешься</label><input id="profileOcc" value="${escapeHtml(p.occupation || '')}" placeholder="Например: предприниматель"></div>
-      <div class="field"><label>Аватар — эмодзи</label>
+      <div class="field"><label for="avatarPhoto">Фотография профиля</label><input id="avatarPhoto" type="file" accept="image/*"></div>
+      <div class="field"><label>Символ профиля</label>
         <div class="profile-emoji-row" id="emojiRow">
           ${["🌿","🌸","☕","📓","✦","🪴","🌤","🌙"].map(e => `<button class="chip ${p.avatar_emoji===e?'active':''}" data-em="${e}">${e}</button>`).join("")}
         </div>
@@ -817,6 +975,11 @@ function renderProfile() {
       </div>
     </div>
   `;
+  $('#avatarPhoto').addEventListener('change', async event => {
+    if (!event.target.files[0]) return;
+    try { await saveAvatar(event.target.files[0]); await loadAvatar(); toast('Фото профиля сохранено'); }
+    catch (error) { toast(error.message, 'err'); }
+  });
   $$(".profile-emoji-row .chip").forEach(b => b.addEventListener("click", () => {
     $$(".profile-emoji-row .chip").forEach(x => x.classList.toggle("active", x === b));
     state.profile.avatar_emoji = b.dataset.em;
@@ -839,23 +1002,84 @@ function renderProfile() {
   });
 }
 
+// Обзор дня формируется из того же источника, что и остальные экраны.
+let overviewTasks = [];
+function overviewText() {
+  const day = $('#overviewDate').value;
+  return ['Вовремя · ' + day, ...overviewTasks.map(task =>
+    `${fmt.time(task.start_at, state.settings.timezone)} · ${task.title} · ${task.category} · ${priorityLabel(task.priority)} · ${task.status === 'done' ? 'Выполнено' : 'Осталось'}`)].join('\n');
+}
+async function renderOverview() {
+  const date = $('#overviewDate');
+  if (!date.value) date.value = dateKey(new Date(), state.settings.timezone);
+  const all = await api.listTasks();
+  overviewTasks = all.filter(task => dateKey(task.start_at, state.settings.timezone) === date.value && task.status !== 'cancelled');
+  if ($('#overviewOrder').value === 'priority') overviewTasks.sort((a, b) => priorityGroup(a) - priorityGroup(b) || Date.parse(a.start_at) - Date.parse(b.start_at));
+  else overviewTasks.sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at));
+  const done = overviewTasks.filter(task => task.status === 'done').length;
+  const overdue = overviewTasks.filter(task => task.status !== 'done' && Date.parse(task.start_at) < Date.now()).length;
+  const content = $('#overviewContent');
+  content.innerHTML = `<div class="overview-summary">Всего ${overviewTasks.length} · Выполнено ${done} · Осталось ${overviewTasks.length - done} · Просрочено ${overdue}</div>`;
+  const next = overviewTasks.find(task => task.status !== 'done' && Date.parse(task.start_at) >= Date.now());
+  if (next) { const line = document.createElement('p'); line.textContent = 'Следующая задача · ' + next.title; content.append(line); }
+  for (const task of overviewTasks) {
+    const row = document.createElement('div'); row.className = 'overview-row';
+    row.textContent = fmt.time(task.start_at, state.settings.timezone) + ' · ' + task.title + ' · ' + task.category + ' · ' + priorityLabel(task.priority) + ' · ' + (task.status === 'done' ? 'Выполнено' : 'Осталось');
+    content.append(row);
+  }
+  if (!overviewTasks.length) content.insertAdjacentHTML('beforeend', '<p>На этот день ничего не запланировано.</p>');
+}
+$('#makeOverview').onclick = renderOverview;
+$('#overviewPrint').onclick = () => window.print();
+$('#overviewCopy').onclick = async () => { await navigator.clipboard.writeText(overviewText()); toast('Список скопирован'); };
+$('#overviewShare').onclick = async () => {
+  if (navigator.share) await navigator.share({ title: 'Обзор дня · Вовремя', text: overviewText() });
+  else { await navigator.clipboard.writeText(overviewText()); toast('Список скопирован'); }
+};
+$('#overviewPng').onclick = () => {
+  const measure = document.createElement('canvas').getContext('2d');
+  measure.font = '25px sans-serif';
+  const wrapped = overviewText().split('\n').flatMap(line => {
+    const words = line.split(' '), rows = [];
+    let current = '';
+    for (const word of words) {
+      const candidate = current ? current + ' ' + word : word;
+      if (measure.measureText(candidate).width > 1120 && current) { rows.push(current); current = word; }
+      else current = candidate;
+    }
+    rows.push(current);
+    return rows;
+  });
+  for (let page = 0; page * 25 < wrapped.length; page++) {
+    const part = wrapped.slice(page * 25, (page + 1) * 25);
+    const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 110 + part.length * 44;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#f4f0fa'; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = '#23113b'; context.font = '25px sans-serif';
+    part.forEach((line, index) => context.fillText(line, 40, 65 + index * 44));
+    const link = document.createElement('a'); link.download = 'vovremya-' + $('#overviewDate').value + '-' + (page + 1) + '.png'; link.href = canvas.toDataURL('image/png'); link.click();
+  }
+};
+
 // === Боковая панель ===
-function openSidePanel(id) {
-  const taskPromise = id === null ? Promise.resolve({ title: '', description: '', start_at: new Date((Math.floor(Date.now() / 60000) + 1) * 60000).toISOString(), category: 'Другое', priority: 3, reminders: state.settings.default_reminders || [60], status: 'planned' }) : api.getTask(id);
+let sideFocusReturn = null;
+function openSidePanel(id, initialStart = null) {
+  sideFocusReturn = document.activeElement;
+  const taskPromise = id === null ? Promise.resolve({ title: '', description: '', start_at: initialStart || new Date((Math.floor(Date.now() / 60000) + 31) * 60000).toISOString(), category: 'Другое', priority: 3, reminders: state.settings.default_reminders || [60], status: 'planned' }) : api.getTask(id);
   taskPromise.then(t => {
     if (!t) return;
     state.editingId = id;
     $("#sideTitle").textContent = id === null ? "Новая задача" : "Редактировать задачу";
     $("#sideDelete").classList.toggle("hidden", id === null);
-    const cats = state.categories;
+    const cats = state.categories.some(category => category.name === t.category) ? state.categories : [...state.categories, { name: t.category, emoji: '' }];
     $("#sideForm").innerHTML = `
-      <div class="sp-field"><label>Название</label><input id="spTitle" value="${escapeHtml(t.title)}"></div>
-      <div class="sp-field"><label>Описание</label><textarea id="spDesc" rows="3" placeholder="Заметки, детали">${escapeHtml(t.description || '')}</textarea></div>
-      <div class="sp-field"><label>Дата и время</label><input id="spStart" type="datetime-local" value="${toLocalInput(t.start_at)}">${id === null ? '<p class="hint">Указано ближайшее время. Выберите, когда начнётся дело.</p>' : ''}</div>
-      <div class="sp-field"><label>Категория</label><select id="spCat">${cats.map(c => `<option value="${c.name}" ${c.name===t.category?'selected':''}>${c.emoji} ${c.name}</option>`).join("")}</select></div>
+      <div class="sp-field"><label for="spTitle">Название</label><input id="spTitle" value="${escapeHtml(t.title)}"></div>
+      <details class="sp-field"><summary>Дополнительно</summary><label for="spDesc">Описание</label><textarea id="spDesc" rows="3" placeholder="Заметки, детали">${escapeHtml(t.description || '')}</textarea></details>
+      <div class="sp-field"><label for="spStart">Дата и время</label><input id="spStart" type="datetime-local" value="${toLocalInput(t.start_at)}">${id === null ? '<p class="hint">Указано ближайшее время. Выберите, когда начнётся дело.</p>' : ''}</div>
+      <div class="sp-field"><label for="spCat">Категория</label><select id="spCat">${cats.map(c => `<option value="${c.name}" ${c.name===t.category?'selected':''}>${c.emoji} ${c.name}</option>`).join("")}</select></div>
       <div class="sp-field"><label>Приоритет</label>
         <div class="sp-actions-row" id="spPrio">
-          ${[1,2,3,4,5].map(p => `<button class="chip ${t.priority===p?'active':''}" data-p="${p}"><span class="prio-dot p${p}"></span> ${priorityLabel(p)}</button>`).join("")}
+          ${[1,2,3,4].map(p => `<button class="chip ${priorityGroup(t)===p?'active':''}" data-p="${p}"><span class="prio-dot p${p}"></span> ${priorityLabel(p)}</button>`).join("")}
         </div>
       </div>
       <div class="sp-field"><label>Напоминание</label>
@@ -888,7 +1112,6 @@ function openSidePanel(id) {
       updateSideReminderHint();
     }));
     $("#spStart").addEventListener("change", updateSideReminderHint);
-    updateSideReminderHint();
     $("#spPostpone").addEventListener("click", () => openPostponeMenu(id));
     $("#spDone").addEventListener("click", () => {
       if (t.status === "done") api.reopenTask(id).then(() => { closeSidePanel(); refreshCurrent(); });
@@ -897,6 +1120,8 @@ function openSidePanel(id) {
     $("#sideOverlay").classList.add("open");
     $("#sidePanel").classList.add("open");
     $("#sidePanel").setAttribute("aria-hidden", "false");
+    $("#sidePanel").inert = false;
+    $("#spTitle").focus();
     $("#sideSave").onclick = async () => {
       const payload = {
         title: $("#spTitle").value.trim(),
@@ -926,11 +1151,14 @@ function closeSidePanel() {
   $("#sideOverlay").classList.remove("open");
   $("#sidePanel").classList.remove("open");
   $("#sidePanel").setAttribute("aria-hidden", "true");
+  $("#sidePanel").inert = true;
+  if (sideFocusReturn?.isConnected) sideFocusReturn.focus();
   state.editingId = null;
 }
 $("#sideClose").addEventListener("click", closeSidePanel);
 $("#sideCancel").addEventListener("click", closeSidePanel);
 $("#sideOverlay").addEventListener("click", closeSidePanel);
+document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("#sidePanel").inert) closeSidePanel(); });
 
 // === Меню «Перенести» ===
 function openPostponeMenu(id) {
@@ -980,7 +1208,7 @@ async function boot() {
     registerWorker();
     reminders.start(error => console.warn('Напоминания:', error.message));
     const r = (location.hash || "#home").slice(1);
-    showRoute(["home", "calendar", "tasks", "settings", "profile"].includes(r) ? r : "home");
+    showRoute(["home", "calendar", "tasks", "settings", "profile", "overview"].includes(r) ? r : "home");
   } catch (e) {
     console.error(e);
     if (api.cloudConfigured) {

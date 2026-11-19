@@ -1,9 +1,9 @@
 // Service worker показывает уведомления, но не планирует фоновые таймеры.
-const CACHE = 'vovremya-shell-v3';
+const CACHE = 'vovremya-shell-v5';
 const ASSETS = ['./', './index.html', './static/styles.css', './static/app.js',
   './static/icons.js', './static/planner-api.js', './static/cloud-api.js', './static/planner-core.js', './static/reminders.js', './static/task-backup.js',
   './static/fonts/manrope.ttf', './static/fonts/inter.ttf', './manifest.webmanifest',
-  './icons/logo.svg', './icons/icon-192.png', './icons/icon-512.png'];
+  './icons/logo.svg', './icons/new-logo.png', './icons/category-icons.png', './night-bg.png', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
   self.skipWaiting();

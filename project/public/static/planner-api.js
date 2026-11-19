@@ -48,6 +48,8 @@ export function createPlannerApi() {
     return data;
   }
   const deviceKey = () => `vovremya.notifications.${identity}`;
+  const categoryKey = () => `vovremya.categories.${identity}`;
+  const customCategories = () => JSON.parse(localStorage.getItem(categoryKey()) || '[]');
   const localMutation = fn => {
     requireReady();
     const data = readLocal();
@@ -160,7 +162,41 @@ export function createPlannerApi() {
       }
       return { added: added.length, skipped };
     },
-    categories: async () => CATEGORIES,
+    async categories() {
+      const custom = customCategories();
+      const tasks = await api.listTasks();
+      const preferred = ['Медицина', 'Семья', 'Работа', 'Дом', 'Дети'];
+      const known = [...new Map([...CATEGORIES, ...custom].map(category => [category.name, category])).values()].filter(category => preferred.includes(category.name) || tasks.some(task => task.category === category.name) || custom.some(saved => saved.name === category.name));
+      const missing = [...new Set(tasks.map(task => task.category))].filter(name => name && !known.some(category => category.name === name));
+      return [...known, ...missing.map(name => ({ name, color: '#8b77ad', emoji: '' }))].filter(category => !category.archived && !custom.some(saved => saved.name === category.name && saved.archived)).sort((a, b) => (custom.find(value => value.name === a.name)?.order ?? (preferred.indexOf(a.name) < 0 ? 100 + known.indexOf(a) : preferred.indexOf(a.name))) - (custom.find(value => value.name === b.name)?.order ?? (preferred.indexOf(b.name) < 0 ? 100 + known.indexOf(b) : preferred.indexOf(b.name))));
+    },
+    saveCategory(category) {
+      const name = String(category.name || '').trim();
+      if (!name || name.length > 20) throw new Error('Название категории должно содержать от 1 до 20 символов');
+      const values = customCategories();
+      const index = values.findIndex(value => value.name === category.previousName || value.name === name);
+      if (index >= 0) values[index] = { ...values[index], ...category, name };
+      else values.push({ ...category, name });
+      localStorage.setItem(categoryKey(), JSON.stringify(values));
+      changed();
+    },
+    async renameCategory(oldName, newName) {
+      const name = String(newName || '').trim();
+      if (!name || name.length > 20) throw new Error('Название категории должно содержать от 1 до 20 символов');
+      const tasks = (await api.listTasks()).filter(task => task.category === oldName);
+      for (const task of tasks) await api.updateTask(task.id, { category: name });
+      const old = (await api.categories()).find(category => category.name === oldName);
+      api.saveCategory({ ...old, name });
+      api.saveCategory({ name: oldName, archived: true });
+    },
+    async moveCategory(name, direction) {
+      const categories = await api.categories();
+      const index = categories.findIndex(category => category.name === name);
+      const target = index + direction;
+      if (target < 0 || target >= categories.length) return;
+      [categories[index], categories[target]] = [categories[target], categories[index]];
+      categories.forEach((category, order) => api.saveCategory({ ...category, order }));
+    },
     async listTasks(filter = 'all', q = '') {
       requireReady();
       const tasks = mode === 'server' ? await req('/api/tasks') : mode === 'cloud' ? await cloud.listTasks() : readLocal().tasks;

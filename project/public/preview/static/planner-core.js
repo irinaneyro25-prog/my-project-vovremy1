@@ -6,6 +6,9 @@ export const CATEGORIES = [
   { name: 'Семья', color: '#739480', emoji: '', aliases: ['семья', 'семьи', 'семье'] },
   { name: 'Здоровье', color: '#ae975f', emoji: '', aliases: ['здоровье', 'здоровья'] },
   { name: 'Обучение', color: '#9383ad', emoji: '', aliases: ['обучение', 'учёба', 'учеба'] },
+  { name: 'Медицина', color: '#8b77ad', emoji: '', aliases: ['врач', 'больниц', 'медицин'] },
+  { name: 'Дом', color: '#6b8d9d', emoji: '', aliases: ['дом', 'уборк'] },
+  { name: 'Дети', color: '#a278a9', emoji: '', aliases: ['дети', 'ребён', 'ребен'] },
   { name: 'Другое', color: '#929691', emoji: '', aliases: [] },
 ];
 
@@ -48,7 +51,7 @@ export function normalizeTask(payload) {
   if (!payload.start_at || !Number.isFinite(Date.parse(payload.start_at))) throw new Error('Укажите дату и время');
   return { ...payload, title, start_at: new Date(payload.start_at).toISOString(),
     timezone: payload.timezone || 'Europe/Moscow',
-    category: CATEGORIES.some(c => c.name === payload.category) ? payload.category : 'Другое',
+    category: typeof payload.category === 'string' && payload.category.trim().length <= 20 ? payload.category.trim() || 'Другое' : 'Другое',
     priority: Math.max(1, Math.min(5, Number(payload.priority) || 3)),
     reminders: normalizeReminders(payload.reminders),
   };

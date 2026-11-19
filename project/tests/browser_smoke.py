@@ -36,9 +36,9 @@ def scenario(browser, url, mode, artifacts):
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(url)
     expect(page.locator('#heroSummary .pill')).to_have_count(4)
-    expect(page.locator('.hero-brand h1')).to_have_text('Вовремя')
-    expect(page.locator('.brand-slogan')).to_have_text('Спокойный день. Всё важное — вовремя.')
-    expect(page.locator('.hero .cta')).to_have_count(1)
+    expect(page.locator('.brand-name')).to_have_text('Вовремя')
+    expect(page.locator('#openQuick')).to_have_text('Добавить задачу')
+    expect(page.locator('#openQuick')).to_have_count(1)
     assert page.evaluate("localStorage.getItem('vovremya.storage-mode')") == mode
     assert page.evaluate('window.permissionRequests') == 0
     page.evaluate("document.fonts.ready")
@@ -69,6 +69,7 @@ def scenario(browser, url, mode, artifacts):
     # Карандаш сохраняет полную форму и заменяет дефолт ручным выбором.
     page.locator('#taskList [data-act="edit"]').click()
     page.locator('#spTitle').fill('План встречи изменён')
+    page.locator('#sideForm summary').click()
     page.locator('#spDesc').fill('Обсудить сроки')
     page.locator('#spRem [data-r="15"]').click()
     page.locator('#sideSave').click()
@@ -148,7 +149,6 @@ def scenario(browser, url, mode, artifacts):
     page.set_viewport_size({'width': 375, 'height': 812})
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     page.screenshot(path=str(artifacts / f'{mode}-mobile.png'), full_page=True)
-    page.locator('#navToggle').click()
     page.locator('[data-route="calendar"]').click()
     expect(page.locator('#calendar')).to_be_visible()
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
@@ -156,7 +156,6 @@ def scenario(browser, url, mode, artifacts):
 
     if mode == 'local':
         # PWA восстанавливает статическую версию офлайн, в том числе на вложенном пути.
-        page.locator('#navToggle').click()
         page.locator('[data-route="tasks"]').click()
         expect(page.locator('#taskList .task-card')).to_have_count(3)
         context.set_offline(True)
