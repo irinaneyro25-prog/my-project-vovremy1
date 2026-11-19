@@ -303,9 +303,15 @@ function compactTaskCard(t) {
     <div class="actions">
       <button class="icon-btn act-done" title="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-label="${t.status === 'done' ? 'Вернуть в работу' : 'Завершить'}" aria-pressed="${t.status === 'done'}">${icon('check')}</button>
       <button class="icon-btn act-edit" title="Редактировать" aria-label="Редактировать">${icon('edit')}</button>
+      <button class="icon-btn act-delete" title="Удалить" aria-label="Удалить задачу">${icon('trash')}</button>
     </div>
   `;
   wrap.addEventListener("click", (e) => {
+    if (e.target.closest('.act-delete')) {
+      e.stopPropagation();
+      deleteTask(t, e.target.closest('button'));
+      return;
+    }
     if (e.target.closest(".act-done")) {
       e.stopPropagation();
       finishTask(t, e.target.closest("button"));
@@ -352,21 +358,54 @@ function bigTaskCard(t) {
     else if (act === "postpone") openPostponeMenu(t.id);
     else if (act === "done") {
       finishTask(t, a);
-    } else if (act === "del") {
-      if (confirm("Удалить задачу?")) api.deleteTask(t.id).then(refreshCurrent);
-    }
+    } else if (act === "del") deleteTask(t, a);
   });
   return wrap;
 }
 
 // === Главная ===
 function priorityGroup(task) { return Math.min(4, Number(task.priority) || 3); }
+function renderTodayAgenda(tasks) {
+  const agenda = $('#todayAgenda');
+  const list = $('#todayAgendaList');
+  list.replaceChildren();
+  const ordered = [...tasks].sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at) || a.title.localeCompare(b.title, 'ru'));
+  agenda.classList.toggle('hidden', ordered.length === 0);
+  $('#todayAgendaCount').textContent = ordered.length ? `Задач: ${ordered.length}` : '';
+  const appendRows = rows => {
+    for (const task of rows) {
+      const row = document.createElement('li');
+      row.className = 'today-agenda-row' + (task.status === 'done' ? ' done' : '');
+      row.dataset.priority = String(priorityGroup(task));
+      const main = document.createElement('button');
+      main.type = 'button'; main.className = 'today-agenda-open';
+      main.innerHTML = `<span class="agenda-time">${escapeHtml(fmt.time(task.start_at, state.settings.timezone))}</span><span class="agenda-info"><strong>${escapeHtml(task.title)}</strong><span class="agenda-meta"><span class="agenda-category">${categoryBadge(task.category)}${escapeHtml(task.category)}</span><span class="agenda-priority">${escapeHtml(priorityLabel(task.priority))}</span>${task.status === 'done' ? '<span class="agenda-status">Выполнено</span>' : ''}</span></span>`;
+      main.onclick = () => openSidePanel(task.id);
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'icon-btn agenda-delete';
+      remove.setAttribute('aria-label', 'Удалить задачу ' + task.title);
+      remove.title = 'Удалить'; remove.innerHTML = icon('trash');
+      remove.onclick = () => deleteTask(task, remove);
+      row.append(main, remove); list.append(row);
+    }
+  };
+  appendRows(ordered.slice(0, 5));
+  if (ordered.length > 5) {
+    const item = document.createElement('li');
+    const more = document.createElement('button');
+    more.type = 'button'; more.className = 'ghost agenda-more';
+    more.textContent = `Показать ещё ${ordered.length - 5}`;
+    more.onclick = () => { item.remove(); appendRows(ordered.slice(5)); };
+    item.append(more); list.append(item);
+  }
+}
 function renderHome() {
   applyProfile();
   Promise.all([api.listTasks(), api.categories()]).then(([tasks, categories]) => {
     state.categories = categories;
     const today = dateKey(new Date(), state.settings.timezone);
     const todayTasks = tasks.filter(t => dateKey(t.start_at, state.settings.timezone) === today && t.status !== 'cancelled');
+    renderTodayAgenda(todayTasks);
     const stats = [
       { label: 'Сегодня', value: todayTasks.length, filter: 'today' },
       { label: 'Важные', value: tasks.filter(t => t.priority <= 2 && t.status !== 'done').length, filter: 'important' },
@@ -392,13 +431,14 @@ function renderHome() {
     next.replaceChildren();
     if (upcoming.length) {
       const task = upcoming[0];
-      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><div class="next-task-info"><strong></strong><span class="next-task-date"></span><p></p></div><div class="next-task-actions"><button type="button" class="ghost next-open">Открыть</button><button type="button" class="icon-btn act-done" aria-label="Выполнить задачу" title="Выполнить задачу">' + icon('check') + '</button><button type="button" class="icon-btn act-edit" aria-label="Редактировать задачу" title="Редактировать задачу">' + icon('edit') + '</button></div>';
+      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><div class="next-task-info"><strong></strong><span class="next-task-date"></span><p></p></div><div class="next-task-actions"><button type="button" class="ghost next-open">Открыть</button><button type="button" class="icon-btn act-done" aria-label="Выполнить задачу" title="Выполнить задачу">' + icon('check') + '</button><button type="button" class="icon-btn act-edit" aria-label="Редактировать задачу" title="Редактировать задачу">' + icon('edit') + '</button><button type="button" class="icon-btn act-delete" aria-label="Удалить задачу" title="Удалить задачу">' + icon('trash') + '</button></div>';
       next.querySelector('strong').textContent = task.title;
       next.querySelector('.next-task-date').textContent = fmt.dayMonth(task.start_at, state.settings.timezone) + ' ' + fmt.date(task.start_at, state.settings.timezone).slice(-4) + ' г. · ' + fmt.time(task.start_at, state.settings.timezone);
       next.querySelector('p').textContent = task.category + ' · ' + priorityLabel(task.priority);
       next.querySelector('.next-open').onclick = () => openSidePanel(task.id);
       next.querySelector('.act-done').onclick = () => finishTask(task, next.querySelector('.act-done'));
       next.querySelector('.act-edit').onclick = () => openSidePanel(task.id);
+      next.querySelector('.act-delete').onclick = () => deleteTask(task, next.querySelector('.act-delete'));
     }
     const homeEmpty = $('#homeEmpty');
     const remaining = tasks.filter(task => task.status !== 'done' && task.status !== 'cancelled');
@@ -1193,7 +1233,11 @@ function openSidePanel(id, initialStart = null) {
       <div class="sp-field"><label for="spTitle">Название</label><input id="spTitle" value="${escapeHtml(t.title)}"></div>
       <details class="sp-field"><summary>Дополнительно</summary><label for="spDesc">Описание</label><textarea id="spDesc" rows="3" placeholder="Заметки, детали">${escapeHtml(t.description || '')}</textarea></details>
       <div class="sp-field"><label for="spStart">Дата и время</label><input id="spStart" type="datetime-local" value="${toLocalInput(t.start_at)}">${id === null ? '<p class="hint">Указано ближайшее время. Выберите, когда начнётся дело.</p>' : ''}</div>
-      <div class="sp-field"><label for="spCat">Категория</label><select id="spCat">${cats.map(c => `<option value="${c.name}" ${c.name===t.category?'selected':''}>${c.emoji} ${c.name}</option>`).join("")}</select></div>
+      <div class="sp-field"><span class="sp-label">Категория</span>
+        <div class="category-choice-grid" id="spCategoryChoices" role="group" aria-label="Выбрать категорию">
+          ${cats.map(c => `<button type="button" class="category-choice ${c.name===t.category?'active':''}" data-category="${escapeHtml(c.name)}" aria-pressed="${c.name===t.category}">${categoryBadge(c.name)}<span>${escapeHtml(c.name)}</span></button>`).join('')}
+        </div>
+        <label for="spCat">Категория из списка</label><select id="spCat">${cats.map(c => `<option value="${escapeHtml(c.name)}" ${c.name===t.category?'selected':''}>${escapeHtml(c.name)}</option>`).join("")}</select></div>
       <div class="sp-field"><label>Приоритет</label>
         <div class="sp-actions-row" id="spPrio">
           ${[1,2,3,4].map(p => `<button class="chip ${priorityGroup(t)===p?'active':''}" data-p="${p}"><span class="prio-dot p${p}"></span> ${priorityLabel(p)}</button>`).join("")}
@@ -1214,6 +1258,18 @@ function openSidePanel(id, initialStart = null) {
       </div>
     `;
     let prio = t.priority;
+    const updateCategoryChoices = () => {
+      $$('#spCategoryChoices .category-choice').forEach(button => {
+        const active = button.dataset.category === $('#spCat').value;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    };
+    $$('#spCategoryChoices .category-choice').forEach(button => button.addEventListener('click', () => {
+      $('#spCat').value = button.dataset.category;
+      updateCategoryChoices();
+    }));
+    $('#spCat').addEventListener('change', updateCategoryChoices);
     $$("#spPrio .chip").forEach(b => b.addEventListener("click", () => {
       prio = Number(b.dataset.p);
       $$("#spPrio .chip").forEach(x => x.classList.toggle("active", x === b));
@@ -1238,7 +1294,8 @@ function openSidePanel(id, initialStart = null) {
     $("#sidePanel").classList.add("open");
     $("#sidePanel").setAttribute("aria-hidden", "false");
     $("#sidePanel").inert = false;
-    $("#spTitle").focus();
+    document.body.classList.add('panel-open');
+    (window.innerWidth <= 720 ? $('#sideTitle') : $('#spTitle')).focus({ preventScroll: true });
     $("#sideSave").onclick = async () => {
       const payload = {
         title: $("#spTitle").value.trim(),
@@ -1269,6 +1326,7 @@ function closeSidePanel() {
   $("#sidePanel").classList.remove("open");
   $("#sidePanel").setAttribute("aria-hidden", "true");
   $("#sidePanel").inert = true;
+  document.body.classList.remove('panel-open');
   if (sideFocusReturn?.isConnected) sideFocusReturn.focus();
   state.editingId = null;
 }
@@ -1390,6 +1448,15 @@ async function finishTask(task, button) {
     if (task.status === 'done') await api.reopenTask(task.id);
     else await api.completeTask(task.id);
     toast(task.status === 'done' ? 'Возвращено в работу' : 'Завершено');
+    refreshCurrent();
+  } catch (error) { button.disabled = false; toast(error.message, 'err'); }
+}
+async function deleteTask(task, button) {
+  if (!confirm(`Удалить задачу «${task.title}»?`)) return;
+  button.disabled = true;
+  try {
+    await api.deleteTask(task.id);
+    toast('Задача удалена');
     refreshCurrent();
   } catch (error) { button.disabled = false; toast(error.message, 'err'); }
 }

@@ -84,6 +84,10 @@
         <ul id="missedList"></ul>
       </section>
 
+      <section class="today-agenda hidden" id="todayAgenda" aria-label="Задачи на сегодня по времени">
+        <div class="today-agenda-head"><h3>Сегодня по времени</h3><span id="todayAgendaCount"></span></div>
+        <ol class="today-agenda-list" id="todayAgendaList"></ol>
+      </section>
       <section id="nextTask" class="next-task"></section>
       <div class="hero-summary" id="heroSummary"></div>
       <div id="homeEmpty" class="home-empty hidden"></div>
@@ -163,7 +167,7 @@
   <div class="side-panel-overlay" id="sideOverlay"></div>
   <aside class="side-panel" id="sidePanel" aria-hidden="true" inert>
     <div class="side-panel-head">
-      <h3 id="sideTitle">Задача</h3>
+      <h3 id="sideTitle" tabindex="-1">Задача</h3>
       <button class="icon-btn" id="sideClose" title="Закрыть">✕</button>
     </div>
     <form class="side-panel-body" id="sideForm" onsubmit="return false"></form>

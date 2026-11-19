@@ -592,3 +592,51 @@ body,[data-theme="dark"] body{background-attachment:scroll!important;background-
   .topbar .theme-toggle { padding:0 10px; }
   .topbar .brand-name { font-size:17px; }
 }
+/* Shared button silhouette and type. Existing semantic colors remain in place. */
+button,a.ghost,.nav-item,label.file-picker { font-family:Inter,system-ui,sans-serif; font-weight:600; }
+button:not(.brand),a.ghost,label.file-picker { border-radius:999px; }
+button:not(.brand):not(.icon-btn):not(.nav-back):not(.nav-toggle):not([data-em]),a.ghost,.nav-item,label.file-picker { font-size:15px; }
+.ghost,.chip,.theme-toggle,.icon-btn,.calendar-add,.category-manage button,.overview-actions button,.category-choice {
+  box-shadow:inset 0 2px 3px #ffffffa8,inset 0 -2px 3px #28174c1c,0 3px 9px #28174c18;
+}
+.ghost,.chip,.theme-toggle,.icon-btn,.calendar-add,.overview-actions button {
+  background-image:linear-gradient(155deg,#ffffff6e,transparent 42%,#28174c10);
+}
+.cta:not(.hero-cta):not(#sideSave) { box-shadow:inset 0 2px 3px #ffffff9c,inset 0 -3px 4px #28174c23,0 4px 10px #28174c20; }
+.priority-heading { font-size:15px; }
+#spPrio .chip { background:linear-gradient(155deg,#ffffff88,#ffffff19 45%),color-mix(in srgb,var(--choice) 24%,white); border-color:color-mix(in srgb,var(--choice) 64%,white); }
+#spPrio .chip.active { background:linear-gradient(155deg,#ffffff80,#ffffff17 36%,#00000018),linear-gradient(180deg,color-mix(in srgb,var(--choice) 76%,white),var(--choice)); }
+.category-choice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.category-choice { display:flex; align-items:center; justify-content:flex-start; min-width:0; min-height:48px; padding:6px 10px; text-align:left; border:1px solid #d8cde9; background:#f9f6ff; color:#302b43; cursor:pointer; }
+.category-choice span:last-child { min-width:0; overflow-wrap:anywhere; }
+.category-choice.active { border-color:#8069ad; background:linear-gradient(155deg,#ffffff88,#ffffff10 50%),#e9ddf8; box-shadow:inset 0 2px 3px #fff,0 0 0 2px #8069ad55; }
+.sp-label { font-size:13px; color:var(--text-soft); }
+.today-agenda { margin:18px 0 14px; padding:16px; border:1px solid #ffffffd9; border-radius:20px; background:#fffffff0; backdrop-filter:blur(14px); }
+.today-agenda-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.today-agenda-head h3 { font-size:17px; }
+.today-agenda-head span { color:var(--text-soft); font-size:13px; }
+.today-agenda-list { list-style:none; padding:0; margin:0; display:grid; gap:7px; }
+.today-agenda-row { --agenda-priority:var(--priority-1); --agenda-accent:var(--agenda-priority); display:flex; align-items:stretch; gap:6px; border-left:4px solid var(--agenda-accent); border-radius:14px; background:#f8f6fc; }
+.today-agenda-row[data-priority="2"] { --agenda-priority:var(--priority-2); }
+.today-agenda-row[data-priority="3"] { --agenda-priority:var(--priority-3); }
+.today-agenda-row[data-priority="4"] { --agenda-priority:var(--priority-4); }
+.today-agenda-row.done { --agenda-accent:var(--priority-completed); }
+.today-agenda-open { display:flex; align-items:center; flex:1; min-width:0; gap:10px; padding:9px 8px; border:0; background:transparent; color:#23113b; text-align:left; cursor:pointer; }
+.today-agenda-open .agenda-time { flex:none; width:44px; font-size:14px; font-weight:700; color:var(--agenda-accent); }
+.agenda-info { display:grid; min-width:0; gap:4px; }
+.agenda-info strong { font-size:14px; line-height:1.3; overflow-wrap:anywhere; }
+.agenda-meta { display:flex; align-items:center; gap:6px 10px; flex-wrap:wrap; font-size:12px; font-weight:500; color:#5e5972; }
+.agenda-category { display:inline-flex; align-items:center; gap:3px; }
+.agenda-category .category-icon { margin-right:0; }
+.agenda-priority { color:var(--agenda-priority); }
+.agenda-status { color:var(--priority-completed); font-weight:700; }
+.today-agenda-row.done .agenda-info strong { text-decoration:line-through; color:#756f85; }
+.agenda-delete { flex:none; width:44px; min-width:44px; height:44px; align-self:center; color:#8c5b68; }
+.agenda-more { width:100%; margin-top:4px; }
+body.panel-open { overflow:hidden; }
+@media(max-width:720px) {
+  .side-panel { width:100vw; height:100dvh; max-height:100dvh; }
+  .side-panel input,.side-panel select,.side-panel textarea { font-size:16px; }
+  .today-agenda { padding:12px; }
+  .today-agenda-open { gap:7px; }
+}
