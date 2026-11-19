@@ -78,8 +78,11 @@ const state = {
 const CAT_FALLBACK = { name: "Другое", emoji: "⚪", color: "#9aa0aa" };
 const CATEGORY_ICONS = { 'Медицина': 0, 'Здоровье': 0, 'Семья': 1, 'Работа': 2, 'Дом': 3, 'Дети': 4 };
 function categoryBadge(name) {
-  const index = CATEGORY_ICONS[name];
-  return index === undefined ? '' : `<span class="category-icon icon-${index}" aria-hidden="true"></span>`;
+  const category = catInfo(name);
+  const chosen = { medical: 0, family: 1, work: 2, home: 3, kids: 4 }[category.icon];
+  const index = chosen ?? CATEGORY_ICONS[name];
+  const color = /^#[0-9a-f]{6}$/i.test(category.color) ? category.color : '#8b77ad';
+  return index === undefined ? '' : `<span class="category-icon icon-${index}" style="border-bottom-color:${color}" aria-hidden="true"></span>`;
 }
 function catInfo(name) { return state.categories.find(c => c.name === name) || CAT_FALLBACK; }
 function categoryOptions() { return state.categories.length ? state.categories : [CAT_FALLBACK]; }

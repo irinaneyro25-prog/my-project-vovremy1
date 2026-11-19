@@ -470,3 +470,4 @@ body,[data-theme="dark"] body{background-attachment:scroll!important;background-
 @media(max-width:720px){.topbar .brand{order:0}.topbar .theme-toggle{order:1;margin-left:auto}.topbar .profile-pill{order:2}.topbar .nav{top:auto;bottom:0;left:0;right:0;width:auto;flex-direction:row;gap:0;align-items:center;padding:5px 2px;border-radius:16px 16px 0 0;box-shadow:0 -4px 15px #23113b25}.topbar .nav .nav-item{width:auto;flex:1;justify-content:center;padding:0 4px;font-size:11px}}
 .home-empty{background:#ffffffe6;border:1px solid white;border-radius:18px;padding:25px;margin:16px 0}.home-empty button{margin-top:12px;min-height:44px}
 @media(max-width:720px){.topbar{backdrop-filter:none}.topbar .nav{top:auto!important;bottom:0!important;position:fixed!important}}
+.category-icon{border-bottom:2px solid transparent}
