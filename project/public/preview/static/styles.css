@@ -636,6 +636,11 @@ button:not(.brand):not(.icon-btn):not(.nav-back):not(.nav-toggle):not([data-em])
 .agenda-delete { flex:none; width:44px; min-width:44px; height:44px; align-self:center; color:#8c5b68; }
 .agenda-more { width:100%; margin-top:4px; }
 body.panel-open { overflow:hidden; }
+.theme-toggle,[data-theme="dark"] .theme-toggle { background:linear-gradient(145deg,#e5e4ff,#c6ddeb 55%,#d7c8ed); color:#23113b; border:1px solid #c5b9e5; }
+.theme-toggle:hover,[data-theme="dark"] .theme-toggle:hover { background:linear-gradient(145deg,#d8d7fa,#b8d8e8 55%,#cdbce9); }
+.theme-toggle .ui-icon,.settings-card [data-tm] .ui-icon,.profile-card [data-ptm] .ui-icon { width:18px; height:18px; }
+.settings-card [data-tm],.profile-card [data-ptm] { background:linear-gradient(145deg,#f3efff,#deedf4 55%,#eee4f7); color:#342053; border-color:#d0c4e9; }
+.settings-card [data-tm].active,.profile-card [data-ptm].active { background:linear-gradient(145deg,#8175cb,#6765b2 65%,#6552a1); color:#fff; border-color:#6356a3; }
 @media(max-width:720px) {
   .side-panel { width:100vw; height:100dvh; max-height:100dvh; }
   .side-panel input,.side-panel select,.side-panel textarea { font-size:16px; }

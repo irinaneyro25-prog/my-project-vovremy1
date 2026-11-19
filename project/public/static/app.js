@@ -102,15 +102,15 @@ function toast(text, kind = "ok") {
 function effectiveTheme(mode) {
   if (mode === "light") return "light";
   if (mode === "dark") return "dark";
-  const h = new Date().getHours();
-  return (h >= 20 || h < 7) ? "dark" : "light";
+  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: state.settings.timezone || 'Europe/Moscow', hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+  return (h >= 17 || h < 7) ? "dark" : "light";
 }
 function applyTheme() {
   const t = effectiveTheme(state.settings.theme_mode || "auto");
   document.documentElement.dataset.theme = t;
   const labels = { light: "Светлая", dark: "Тёмная", auto: "Авто" };
   $("#themeLabel").textContent = labels[state.settings.theme_mode || "auto"] || "Авто";
-  $("#themeIcon").innerHTML = icon("theme");
+  $("#themeIcon").innerHTML = icon(state.settings.theme_mode === 'light' ? 'sun' : state.settings.theme_mode === 'dark' ? 'theme' : 'auto');
 }
 setInterval(() => { if (state.settings.theme_mode === 'auto') applyTheme(); }, 60000);
 $("#themeToggle").addEventListener("click", () => {
@@ -778,10 +778,10 @@ async function renderSettings() {
   const timezones = ["Europe/Moscow", "Europe/Kaliningrad", "Europe/Samara", "Asia/Yekaterinburg", "Asia/Novosibirsk", "Asia/Krasnoyarsk", "Asia/Irkutsk", "Asia/Yakutsk", "Asia/Vladivostok", "Asia/Magadan", "Asia/Kamchatka"];
   g.innerHTML = `
     <div class="settings-card">
-      <h3>Оформление</h3><p>Авто: светлая днём, вечерняя после 20:00.</p>
+      <h3>Оформление</h3><p>Авто: светлая с 07:00, вечерняя после 17:00 по выбранному часовому поясу.</p>
       <div class="field"><label>Тема</label>
         <div class="inline">
-          ${["auto", "light", "dark"].map(m => `<button class="chip ${s.theme_mode===m?'active':''}" data-tm="${m}">${m==='auto'?'Авто':m==='light'?'Светлая':'Тёмная'}</button>`).join("")}
+          ${["auto", "light", "dark"].map(m => `<button class="chip ${s.theme_mode===m?'active':''}" data-tm="${m}">${icon(m==='light'?'sun':m==='dark'?'theme':'auto')} ${m==='auto'?'Авто':m==='light'?'Светлая':'Тёмная'}</button>`).join("")}
         </div>
       </div>
     </div>
@@ -890,7 +890,7 @@ async function renderSettings() {
     applyTheme();
     renderSettings();
   }));
-  $("#setTz").addEventListener("change", async e => { state.settings = await api.saveSettings({ timezone: e.target.value }); applyProfile(); });
+  $("#setTz").addEventListener("change", async e => { state.settings = await api.saveSettings({ timezone: e.target.value }); applyTheme(); applyProfile(); });
   $("#remindersEnabled").addEventListener("change", async e => {
     try {
       if (e.target.checked) await enableReminders();
@@ -1087,7 +1087,7 @@ function renderProfile() {
       </div>
       <div class="field"><label>Тема</label>
         <div class="inline">
-          ${["auto","light","dark"].map(m => `<button class="chip ${state.settings.theme_mode===m?'active':''}" data-ptm="${m}">${m==='auto'?'Авто':m==='light'?'Светлая':'Тёмная'}</button>`).join("")}
+          ${["auto","light","dark"].map(m => `<button class="chip ${state.settings.theme_mode===m?'active':''}" data-ptm="${m}">${icon(m==='light'?'sun':m==='dark'?'theme':'auto')} ${m==='auto'?'Авто':m==='light'?'Светлая':'Тёмная'}</button>`).join("")}
         </div>
       </div>
     </div>
@@ -1112,7 +1112,7 @@ function renderProfile() {
     applyTheme();
     renderProfile();
   }));
-  $("#profileTz").addEventListener("change", async e => { state.settings = await api.saveSettings({ timezone: e.target.value }); applyProfile(); });
+  $("#profileTz").addEventListener("change", async e => { state.settings = await api.saveSettings({ timezone: e.target.value }); applyTheme(); applyProfile(); });
   $("#profileSave").addEventListener("click", async () => {
     const name = $("#profileNameInput").value.trim();
     const occ = $("#profileOcc").value.trim();
