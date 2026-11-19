@@ -31,10 +31,10 @@
     </form>
   </section>
   <header class="topbar">
-    <div class="brand">
+    <button class="brand" id="brandMenuToggle" type="button" aria-label="Открыть меню" aria-controls="nav" aria-expanded="false">
       <img class="brand-mark" src="./icons/new-logo.png" width="32" height="32" alt="">
       <span class="brand-name">Вовремя</span>
-    </div>
+    </button>
     <button class="nav-toggle" id="navToggle" aria-label="Меню">☰</button>
     <nav class="nav" id="nav">
       <a href="#home" data-route="home" class="nav-item active">Главная</a>
@@ -91,6 +91,10 @@
         <section class="bucket priority-bucket" data-priority="3"><h3><button type="button" class="priority-heading">Срочно, не важно <span class="count" id="cntP3">0</span></button></h3><div class="bucket-list" data-bucket="p3"></div></section>
         <section class="bucket priority-bucket" data-priority="4"><h3><button type="button" class="priority-heading">Можно позже <span class="count" id="cntP4">0</span></button></h3><div class="bucket-list" data-bucket="p4"></div></section>
       </div>
+      <section class="bucket priority-bucket completed-bucket" id="completedBucket">
+        <h3><button type="button" class="priority-heading" id="completedHeading">Выполнено <span class="count" id="cntCompleted">0</span></button></h3>
+        <div class="bucket-list" id="completedList"></div>
+      </section>
     </section>
 
     <section class="route hidden" id="calendar" data-view="calendar">
@@ -138,8 +142,10 @@
     <section class="route hidden" id="overview" data-view="overview">
       <h2>Обзор дня</h2>
       <div class="overview-controls"><label>Дата <input id="overviewDate" type="date"></label><label>Порядок <select id="overviewOrder"><option value="priority">По важности</option><option value="time">По времени</option></select></label><button id="makeOverview" class="cta" type="button">Сформировать отчёт</button></div>
+      <p id="overviewStatus" role="status">Выберите дату и порядок, затем нажмите «Сформировать отчёт».</p>
       <div id="overviewContent"></div>
-      <div class="overview-actions"><button id="overviewPng" type="button">Сохранить PNG</button><button id="overviewPrint" type="button">Печать / PDF</button><button id="overviewCopy" type="button">Копировать текст</button><button id="overviewShare" type="button">Поделиться</button></div>
+      <div class="overview-actions hidden"><button id="overviewPng" type="button">Сохранить PNG</button><button id="overviewPrint" type="button">Печать / PDF</button><button id="overviewCopy" type="button">Копировать текст</button><button id="overviewShare" type="button">Поделиться</button></div>
+      <p class="overview-share-hint hidden" id="overviewShareHint">«Поделиться» откроет системное меню. В нём можно выбрать Telegram, если он установлен на устройстве.</p>
     </section>
     <section class="route hidden" id="profile" data-view="profile">
       <div class="viewbar"><h2>Профиль</h2></div>

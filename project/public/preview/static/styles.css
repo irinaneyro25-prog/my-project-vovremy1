@@ -471,3 +471,60 @@ body,[data-theme="dark"] body{background-attachment:scroll!important;background-
 .home-empty{background:#ffffffe6;border:1px solid white;border-radius:18px;padding:25px;margin:16px 0}.home-empty button{margin-top:12px;min-height:44px}
 @media(max-width:720px){.topbar{backdrop-filter:none}.topbar .nav{top:auto!important;bottom:0!important;position:fixed!important}}
 .category-icon{border-bottom:2px solid transparent}
+/* Priority colors and completed tasks. */
+:root { --priority-4:#5d82b6; --priority-completed:#5f886f; }
+[data-theme="dark"] { --priority-4:#91b4e5; --priority-completed:#88ae97; }
+.completed-bucket { --priority:var(--priority-completed); margin-top:16px; min-height:0; }
+.completed-bucket .cat-stripe { background:var(--priority-completed)!important; }
+.completed-bucket .task-card.done { opacity:1; }
+.completed-bucket .task-card.done .title { color:var(--text-soft); }
+.next-task small { display:block; margin-bottom:10px; }
+.next-task-info { flex:1 1 240px; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.next-task-info strong { display:block; line-height:1.35; }
+.next-task-date { display:block; color:var(--text-soft); line-height:1.45; }
+.next-task-info p { margin:0; }
+.brand { border:0; background:transparent; color:inherit; cursor:pointer; padding:0; font:inherit; }
+.brand:focus-visible { outline:3px solid var(--accent); outline-offset:5px; border-radius:8px; }
+.overview-share-hint { color:var(--text-soft); font-size:14px; }
+[data-theme="dark"] .next-task .cta { background:#e9ddff; color:#23113b; border-color:#e9ddff; font-weight:700; }
+[data-theme="dark"] .next-task .ghost { background:#f7f3ff; color:#23113b; border-color:#e3d9f4; }
+[data-theme="dark"] .cal-modes .chip,
+[data-theme="dark"] .viewbar .ghost,
+[data-theme="dark"] .viewbar .chip,
+[data-theme="dark"] .calendar-slots .ghost,
+[data-theme="dark"] .overview-actions button,
+[data-theme="dark"] .overview-controls .cta { background:#f1eafd; color:#23113b; border:1px solid #e3d9f4; }
+[data-theme="dark"] .cal-modes .chip.active { background:#7d67b7; color:white; border-color:#a48bd7; }
+[data-theme="dark"] .route > .viewbar h2,
+[data-theme="dark"] .route > h2,
+[data-theme="dark"] .route > .viewbar .viewbar-left h2,
+[data-theme="dark"] #overviewStatus,
+[data-theme="dark"] .overview-share-hint { color:#f4edff; }
+[data-theme="dark"] .settings-card,
+[data-theme="dark"] .profile-card { color:#23113b; }
+#settings, .settings-grid, .settings-card { min-width:0; max-width:100%; }
+.settings-card { overflow-wrap:anywhere; }
+.settings-card .field, .settings-card input, .settings-card select { min-width:0; max-width:100%; }
+.category-manage { flex-wrap:wrap; }
+.category-manage span { flex:1 1 100%; }
+@media(max-width:720px) {
+  .topbar .nav.menu-open { top:64px!important; bottom:auto!important; left:12px; right:12px; width:auto; flex-direction:column; align-items:stretch; max-height:70vh; overflow-y:auto; padding:8px; border-radius:16px; background:#f7f3ff; box-shadow:0 12px 32px #17112b55; }
+  .topbar .nav.menu-open .nav-item { flex:none; width:100%; justify-content:flex-start; font-size:14px; padding:0 16px; }
+  .topbar .brand { flex:0 0 auto; }
+  .next-task { display:block; }
+  .next-task-info { margin-bottom:12px; }
+  #settings .settings-card { width:100%; }
+}
+[data-theme="dark"] { --priority-4:#446f9e; --priority-completed:#4e7c61; }
+[data-theme="dark"] .chip.active,
+[data-theme="dark"] .nav-item.active { color:#fff; }
+[data-theme="dark"] .theme-toggle { background:#f7f3ff; color:#23113b; }
+[data-theme="dark"] .topbar .brand-name { color:#23113b; }
+.settings-card .tag { background:#f1eafd; color:#302b43; min-height:32px; }
+.category-manage { padding:12px 0; border-top:1px solid var(--border); }
+.category-manage button { padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:#f7f3ff; color:#23113b; cursor:pointer; }
+.category-manage button:hover { background:#ece3fa; }
+@media(max-width:720px) {
+  .category-manage { justify-content:flex-start; }
+  .category-manage span { flex-basis:100%; }
+}

@@ -202,13 +202,28 @@ function showRoute(name) {
   // маршрут "quick" больше не используется — быстрый ввод живёт инлайном на главной
   if (name === "settings") renderSettings();
   if (name === "profile") renderProfile();
-  if (name === "overview") renderOverview();
+  if (name === "overview") prepareOverview();
 }
 
 $("#navToggle").addEventListener("click", () => {
   $("#nav").classList.toggle("open");
 });
-$$(".nav-item").forEach(a => a.addEventListener("click", () => $("#nav").classList.remove("open")));
+const brandMenuToggle = $('#brandMenuToggle');
+brandMenuToggle.addEventListener('click', () => {
+  if (window.innerWidth > 720) return;
+  const open = $('#nav').classList.toggle('menu-open');
+  brandMenuToggle.setAttribute('aria-expanded', String(open));
+});
+$$(".nav-item").forEach(a => a.addEventListener("click", () => {
+  $("#nav").classList.remove("open", "menu-open");
+  brandMenuToggle.setAttribute('aria-expanded', 'false');
+}));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    $('#nav').classList.remove('menu-open');
+    brandMenuToggle.setAttribute('aria-expanded', 'false');
+  }
+});
 
 window.addEventListener("hashchange", () => {
   const r = (location.hash || "#home").slice(1);
@@ -331,16 +346,33 @@ function renderHome() {
     next.replaceChildren();
     if (upcoming.length) {
       const task = upcoming[0];
-      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><strong></strong><p></p><button type="button" class="ghost">Открыть</button><button type="button" class="cta">Выполнить</button>';
-      next.querySelector('strong').textContent = task.title + ' · ' + fmt.time(task.start_at, state.settings.timezone);
+      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><div class="next-task-info"><strong></strong><span class="next-task-date"></span><p></p></div><button type="button" class="ghost">Открыть</button><button type="button" class="cta">Выполнить</button>';
+      next.querySelector('strong').textContent = task.title;
+      next.querySelector('.next-task-date').textContent = fmt.dayMonth(task.start_at, state.settings.timezone) + ' ' + fmt.date(task.start_at, state.settings.timezone).slice(-4) + ' г. · ' + fmt.time(task.start_at, state.settings.timezone);
       next.querySelector('p').textContent = task.category + ' · ' + priorityLabel(task.priority);
       next.querySelector('.ghost').onclick = () => openSidePanel(task.id);
       next.querySelector('.cta').onclick = () => finishTask(task, next.querySelector('.cta'));
     }
     const homeEmpty = $('#homeEmpty');
     const remaining = tasks.filter(task => task.status !== 'done' && task.status !== 'cancelled');
+    const completed = tasks.filter(task => task.status === 'done').sort((a, b) => Date.parse(b.start_at) - Date.parse(a.start_at));
     homeEmpty.classList.toggle('hidden', remaining.length > 0);
     $('#buckets').classList.toggle('hidden', remaining.length === 0);
+    $('#completedBucket').classList.toggle('hidden', completed.length === 0);
+    $('#cntCompleted').textContent = completed.length;
+    const completedList = $('#completedList');
+    completedList.replaceChildren(...completed.slice(0, 4).map(compactTaskCard));
+    if (completed.length > 4) {
+      const more = document.createElement('button');
+      more.className = 'ghost';
+      more.textContent = 'Показать ещё ' + (completed.length - 4);
+      more.onclick = () => more.replaceWith(...completed.slice(4).map(compactTaskCard));
+      completedList.append(more);
+    }
+    $('#completedHeading').onclick = () => {
+      state.filter = 'done'; state.priorityFilter = 0;
+      location.hash = '#tasks'; showRoute('tasks');
+    };
     if (!remaining.length) {
       homeEmpty.innerHTML = tasks.some(task => task.status === 'done')
         ? '<h3>На сегодня всё</h3><p>Можно спокойно завершать день.</p><button class="cta" type="button">Добавить задачу</button>'
@@ -354,7 +386,6 @@ function renderHome() {
       };
       const active = tasks.filter(t => t.status !== 'cancelled' && priorityGroup(t) === group);
       const open = active.filter(t => t.status !== 'done');
-      const done = active.filter(t => t.status === 'done');
       const list = $('[data-bucket="p' + group + '"]');
       list.replaceChildren(...open.slice(0, 4).map(compactTaskCard));
       $('#cntP' + group).textContent = open.length;
@@ -364,12 +395,6 @@ function renderHome() {
         more.textContent = 'Показать ещё ' + (open.length - 4);
         more.onclick = () => more.replaceWith(...open.slice(4).map(compactTaskCard));
         list.append(more);
-      }
-      if (done.length) {
-        const complete = document.createElement('details');
-        complete.innerHTML = '<summary>Выполнено ' + done.length + '</summary>';
-        complete.append(...done.map(compactTaskCard));
-        list.append(complete);
       }
     }
   }).catch(error => toast('Не удалось загрузить данные: ' + error.message, 'err'));
@@ -1007,16 +1032,34 @@ function renderProfile() {
 
 // Обзор дня формируется из того же источника, что и остальные экраны.
 let overviewTasks = [];
+let overviewRequest = 0;
 function overviewText() {
   const day = $('#overviewDate').value;
   return ['Вовремя · ' + day, ...overviewTasks.map(task =>
     `${fmt.time(task.start_at, state.settings.timezone)} · ${task.title} · ${task.category} · ${priorityLabel(task.priority)} · ${task.status === 'done' ? 'Выполнено' : 'Осталось'}`)].join('\n');
 }
+function prepareOverview() {
+  const date = $('#overviewDate');
+  if (!date.value) date.value = dateKey(new Date(), state.settings.timezone);
+  overviewTasks = [];
+  $('#overviewContent').replaceChildren();
+  $('#overviewStatus').textContent = 'Выберите дату и порядок, затем нажмите «Сформировать отчёт».';
+  $('.overview-actions').classList.add('hidden');
+  $('#overviewShareHint').classList.add('hidden');
+}
 async function renderOverview() {
   const date = $('#overviewDate');
   if (!date.value) date.value = dateKey(new Date(), state.settings.timezone);
-  const all = await api.listTasks();
-  overviewTasks = all.filter(task => dateKey(task.start_at, state.settings.timezone) === date.value && task.status !== 'cancelled');
+  const selectedDate = date.value;
+  const selectedOrder = $('#overviewOrder').value;
+  const request = ++overviewRequest;
+  $('#overviewStatus').textContent = 'Формируем отчёт…';
+  $('.overview-actions').classList.add('hidden');
+  let all;
+  try { all = await api.listTasks(); }
+  catch (error) { $('#overviewStatus').textContent = 'Не удалось сформировать отчёт: ' + error.message; return; }
+  if (request !== overviewRequest || selectedDate !== date.value || selectedOrder !== $('#overviewOrder').value) return;
+  overviewTasks = all.filter(task => dateKey(task.start_at, state.settings.timezone) === selectedDate && task.status !== 'cancelled');
   if ($('#overviewOrder').value === 'priority') overviewTasks.sort((a, b) => priorityGroup(a) - priorityGroup(b) || Date.parse(a.start_at) - Date.parse(b.start_at));
   else overviewTasks.sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at));
   const done = overviewTasks.filter(task => task.status === 'done').length;
@@ -1031,13 +1074,30 @@ async function renderOverview() {
     content.append(row);
   }
   if (!overviewTasks.length) content.insertAdjacentHTML('beforeend', '<p>На этот день ничего не запланировано.</p>');
+  $('#overviewStatus').textContent = 'Отчёт за ' + fmt.date(selectedDate + 'T12:00:00', state.settings.timezone) + ' сформирован. Задач: ' + overviewTasks.length + '.';
+  $('.overview-actions').classList.remove('hidden');
+  $('#overviewShareHint').classList.remove('hidden');
 }
 $('#makeOverview').onclick = renderOverview;
+for (const id of ['overviewDate', 'overviewOrder']) {
+  $('#' + id).addEventListener('change', () => {
+    overviewRequest++;
+    overviewTasks = [];
+    $('#overviewContent').replaceChildren();
+    $('#overviewStatus').textContent = 'Параметры изменены. Сформируйте отчёт снова.';
+    $('.overview-actions').classList.add('hidden');
+    $('#overviewShareHint').classList.add('hidden');
+  });
+}
 $('#overviewPrint').onclick = () => window.print();
 $('#overviewCopy').onclick = async () => { await navigator.clipboard.writeText(overviewText()); toast('Список скопирован'); };
 $('#overviewShare').onclick = async () => {
-  if (navigator.share) await navigator.share({ title: 'Обзор дня · Вовремя', text: overviewText() });
-  else { await navigator.clipboard.writeText(overviewText()); toast('Список скопирован'); }
+  try {
+    if (navigator.share) await navigator.share({ title: 'Обзор дня · Вовремя', text: overviewText() });
+    else { await navigator.clipboard.writeText(overviewText()); toast('Список скопирован. Вставьте его в Telegram или другое приложение.'); }
+  } catch (error) {
+    if (error.name !== 'AbortError') toast('Не удалось поделиться: ' + error.message, 'err');
+  }
 };
 $('#overviewPng').onclick = () => {
   const measure = document.createElement('canvas').getContext('2d');
