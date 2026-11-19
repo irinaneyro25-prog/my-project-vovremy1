@@ -528,3 +528,67 @@ body,[data-theme="dark"] body{background-attachment:scroll!important;background-
   .category-manage { justify-content:flex-start; }
   .category-manage span { flex-basis:100%; }
 }
+/* Rounded glass controls with the same type scale throughout the task actions. */
+.priority-heading,
+.hero-cta,
+#sideSave,
+.home-empty .cta {
+  font-family:Inter,system-ui,sans-serif;
+  font-size:15px;
+  font-weight:600;
+  letter-spacing:0;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--priority,#7066bc) 72%,white);
+  background:linear-gradient(155deg,#ffffff8c 0%,#ffffff26 32%,#00000014 100%),linear-gradient(180deg,color-mix(in srgb,var(--priority,#7066bc) 76%,white),var(--priority,#7066bc));
+  box-shadow:inset 0 2px 3px #ffffffaa,inset 0 -3px 4px #20143a2a,0 5px 12px color-mix(in srgb,var(--priority,#7066bc) 22%,transparent);
+  color:#fff;
+  text-shadow:0 1px 1px #1b163a45;
+}
+.priority-heading { max-width:100%; min-height:50px; gap:10px; line-height:1.3; text-align:left; white-space:normal; }
+.priority-heading .priority-label { min-width:0; flex:1; }
+.priority-heading .count { flex:none; text-shadow:none; }
+.priority-bucket[data-priority="3"] .priority-heading { color:#2d2040; text-shadow:none; }
+.hero-cta:hover,#sideSave:hover,.home-empty .cta:hover {
+  background:linear-gradient(155deg,#ffffff8c 0%,#ffffff26 32%,#00000014 100%),linear-gradient(180deg,color-mix(in srgb,var(--priority,#7066bc) 76%,white),var(--priority,#7066bc));
+  filter:brightness(1.06);
+}
+.next-task-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.next-task-actions .icon-btn { width:44px; height:44px; min-width:44px; border-color:#d8cde9; background:#f7f3ff; color:#342053; }
+.next-task-actions .act-done { color:#3f7359; }
+.next-task-actions .icon-btn:hover { background:#ebe2fa; }
+.brand-menu-glyph { display:none; font-size:16px; line-height:1; color:#3d2a63; margin-left:2px; }
+.nav-back { flex:none; font-size:30px; line-height:1; background:#f7f3ff; color:#342053; }
+.file-input { position:absolute; width:1px!important; height:1px!important; padding:0!important; opacity:0; overflow:hidden; }
+.file-input:focus-visible + .file-picker { outline:3px solid var(--accent); outline-offset:3px; }
+.file-picker { width:max-content; max-width:100%; cursor:pointer; }
+.side-panel-body,.side-panel-foot,.sp-field { min-width:0; }
+.side-panel { background:#f8f6fc; }
+.side-panel-head,.side-panel-foot { background:#f8f6fc; }
+.side-panel-body input,.side-panel-body select,.side-panel-body textarea { min-width:0; max-width:100%; }
+#spPrio,#spRem { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+#spPrio .chip,#spRem .chip { min-width:0; min-height:54px; height:auto; padding:8px 10px; line-height:1.25; white-space:normal; text-align:center; }
+#spPrio .chip .prio-dot { flex:none; }
+#spPrio .chip[data-p="1"] { --choice:var(--priority-1); }
+#spPrio .chip[data-p="2"] { --choice:var(--priority-2); }
+#spPrio .chip[data-p="3"] { --choice:var(--priority-3); }
+#spPrio .chip[data-p="4"] { --choice:var(--priority-4); }
+#spPrio .chip { border-color:color-mix(in srgb,var(--choice) 50%,white); color:#302b43; background:color-mix(in srgb,var(--choice) 10%,white); }
+#spPrio .chip.active { color:white; border-color:var(--choice); background:linear-gradient(155deg,#ffffff80,#ffffff17 36%,#00000018),linear-gradient(180deg,color-mix(in srgb,var(--choice) 76%,white),var(--choice)); box-shadow:inset 0 2px 3px #ffffff9c,0 4px 10px color-mix(in srgb,var(--choice) 22%,transparent); }
+#spPrio .chip[data-p="3"].active { color:#2d2040; }
+@media(max-width:720px) {
+  .brand-menu-glyph { display:inline; }
+  .topbar .brand { min-width:0; }
+  .topbar .brand-name { overflow:hidden; text-overflow:ellipsis; }
+  .side-panel { width:100%; max-width:100vw; }
+  .side-panel-head { padding:12px 16px; }
+  .side-panel-body { padding:16px; overflow-x:hidden; }
+  .side-panel-foot { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .next-task-actions { margin-top:12px; }
+  .next-task-actions .next-open { margin:0; }
+  .priority-heading { width:100%; }
+}
+@media(max-width:360px) {
+  .topbar #themeLabel { display:none; }
+  .topbar .theme-toggle { padding:0 10px; }
+  .topbar .brand-name { font-size:17px; }
+}

@@ -138,19 +138,46 @@ function avatarDatabase() {
   });
 }
 async function saveAvatar(file) {
-  const bitmap = await createImageBitmap(file);
+  if (!file.type.startsWith('image/')) throw new Error('Выберите изображение');
+  let bitmap;
+  let imageUrl;
+  if (typeof createImageBitmap === 'function') {
+    try { bitmap = await createImageBitmap(file); } catch { /* Safari may need an Image element. */ }
+  }
+  if (!bitmap) {
+    imageUrl = URL.createObjectURL(file);
+    try {
+      bitmap = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Не удалось открыть изображение'));
+        image.src = imageUrl;
+      });
+    } finally { URL.revokeObjectURL(imageUrl); }
+  }
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 512;
   const context = canvas.getContext('2d');
   const ratio = Math.max(512 / bitmap.width, 512 / bitmap.height);
   const width = bitmap.width * ratio, height = bitmap.height * ratio;
   context.drawImage(bitmap, (512 - width) / 2, (512 - height) / 2, width, height);
-  bitmap.close();
+  bitmap.close?.();
   const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .84));
+  if (!blob) throw new Error('Не удалось сохранить фотографию');
   const database = await avatarDatabase();
   await new Promise((resolve, reject) => {
     const transaction = database.transaction('photos', 'readwrite');
     transaction.objectStore('photos').put(blob, 'profile');
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+async function clearAvatar() {
+  const database = await avatarDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction('photos', 'readwrite');
+    transaction.objectStore('photos').delete('profile');
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error);
   });
@@ -178,7 +205,7 @@ function applyProfile() {
   const name = p.name?.trim();
   $("#heroGreeting").textContent = greetingText();
   $("#profileName").textContent = name || "Гость";
-  $("#profileAvatar").textContent = name ? name[0].toUpperCase() : "В";
+  $("#profileAvatar").textContent = p.avatar_emoji || (name ? name[0].toUpperCase() : "В");
   loadAvatar().catch(() => {});
   $("#heroDate").textContent = fmt.dayMonth(new Date().toISOString(), state.settings.timezone);
 }
@@ -192,8 +219,13 @@ $("#profilePill").addEventListener("click", () => {
 });
 
 // === рутинг ===
+const routeStack = [];
+let navigatingBack = false;
 function showRoute(name) {
+  const changed = name !== state.route;
+  if (changed && !navigatingBack) routeStack.push(state.route);
   state.route = name;
+  $('#navBack').classList.toggle('hidden', name === 'home');
   $$(".route").forEach(s => s.classList.toggle("hidden", s.dataset.view !== name));
   $$(".nav-item").forEach(a => a.classList.toggle("active", a.dataset.route === name));
   if (name === "home") renderHome();
@@ -203,25 +235,39 @@ function showRoute(name) {
   if (name === "settings") renderSettings();
   if (name === "profile") renderProfile();
   if (name === "overview") prepareOverview();
+  if (changed) window.scrollTo(0, 0);
 }
+$('#navBack').addEventListener('click', () => {
+  if (!$('#sidePanel').inert) { closeSidePanel(); return; }
+  const target = routeStack.pop() || 'home';
+  navigatingBack = true;
+  location.hash = '#' + target;
+  showRoute(target);
+  navigatingBack = false;
+  requestAnimationFrame(() => window.scrollTo(0, 0));
+});
 
 $("#navToggle").addEventListener("click", () => {
   $("#nav").classList.toggle("open");
 });
 const brandMenuToggle = $('#brandMenuToggle');
+function setBrandMenu(open) {
+  $('#nav').classList.toggle('menu-open', open);
+  brandMenuToggle.setAttribute('aria-expanded', String(open));
+  brandMenuToggle.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+  brandMenuToggle.querySelector('.brand-menu-glyph').textContent = open ? '×' : '☰';
+}
 brandMenuToggle.addEventListener('click', () => {
   if (window.innerWidth > 720) return;
-  const open = $('#nav').classList.toggle('menu-open');
-  brandMenuToggle.setAttribute('aria-expanded', String(open));
+  setBrandMenu(!$('#nav').classList.contains('menu-open'));
 });
 $$(".nav-item").forEach(a => a.addEventListener("click", () => {
-  $("#nav").classList.remove("open", "menu-open");
-  brandMenuToggle.setAttribute('aria-expanded', 'false');
+  $("#nav").classList.remove("open");
+  setBrandMenu(false);
 }));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
-    $('#nav').classList.remove('menu-open');
-    brandMenuToggle.setAttribute('aria-expanded', 'false');
+    setBrandMenu(false);
   }
 });
 
@@ -346,12 +392,13 @@ function renderHome() {
     next.replaceChildren();
     if (upcoming.length) {
       const task = upcoming[0];
-      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><div class="next-task-info"><strong></strong><span class="next-task-date"></span><p></p></div><button type="button" class="ghost">Открыть</button><button type="button" class="cta">Выполнить</button>';
+      next.innerHTML = '<small>СЛЕДУЮЩАЯ ЗАДАЧА</small><div class="next-task-info"><strong></strong><span class="next-task-date"></span><p></p></div><div class="next-task-actions"><button type="button" class="ghost next-open">Открыть</button><button type="button" class="icon-btn act-done" aria-label="Выполнить задачу" title="Выполнить задачу">' + icon('check') + '</button><button type="button" class="icon-btn act-edit" aria-label="Редактировать задачу" title="Редактировать задачу">' + icon('edit') + '</button></div>';
       next.querySelector('strong').textContent = task.title;
       next.querySelector('.next-task-date').textContent = fmt.dayMonth(task.start_at, state.settings.timezone) + ' ' + fmt.date(task.start_at, state.settings.timezone).slice(-4) + ' г. · ' + fmt.time(task.start_at, state.settings.timezone);
       next.querySelector('p').textContent = task.category + ' · ' + priorityLabel(task.priority);
-      next.querySelector('.ghost').onclick = () => openSidePanel(task.id);
-      next.querySelector('.cta').onclick = () => finishTask(task, next.querySelector('.cta'));
+      next.querySelector('.next-open').onclick = () => openSidePanel(task.id);
+      next.querySelector('.act-done').onclick = () => finishTask(task, next.querySelector('.act-done'));
+      next.querySelector('.act-edit').onclick = () => openSidePanel(task.id);
     }
     const homeEmpty = $('#homeEmpty');
     const remaining = tasks.filter(task => task.status !== 'done' && task.status !== 'cancelled');
@@ -978,15 +1025,17 @@ function renderProfile() {
   const p = state.profile;
   const g = $("#profileGrid");
   if (!g) return;
+  let selectedEmoji = p.avatar_emoji || '';
+  let avatarChoice = 'existing';
   g.innerHTML = `
     <div class="profile-card">
       <h3>Имя и аватар</h3>
       <div class="field"><label>Имя</label><input id="profileNameInput" value="${escapeHtml(p.name || '')}" placeholder="Как тебя зовут?"></div>
       <div class="field"><label>Чем занимаешься</label><input id="profileOcc" value="${escapeHtml(p.occupation || '')}" placeholder="Например: предприниматель"></div>
-      <div class="field"><label for="avatarPhoto">Фотография профиля</label><input id="avatarPhoto" type="file" accept="image/*"></div>
+      <div class="field"><span>Фотография профиля</span><input id="avatarPhoto" class="file-input" type="file" accept="image/*"><label class="ghost file-picker" for="avatarPhoto">Выбрать фото</label><p class="hint" id="avatarPhotoStatus" role="status">После выбора фотография сохранится на этом устройстве.</p></div>
       <div class="field"><label>Символ профиля</label>
         <div class="profile-emoji-row" id="emojiRow">
-          ${["🌿","🌸","☕","📓","✦","🪴","🌤","🌙"].map(e => `<button class="chip ${p.avatar_emoji===e?'active':''}" data-em="${e}">${e}</button>`).join("")}
+          ${["🌿","🌸","☕","📓","✦","🪴","🌤","🌙"].map(e => `<button type="button" class="chip ${p.avatar_emoji===e?'active':''}" data-em="${e}" aria-label="Выбрать символ ${e}">${e}</button>`).join("")}
         </div>
       </div>
       <button class="cta" id="profileSave">Сохранить</button>
@@ -1005,13 +1054,17 @@ function renderProfile() {
   `;
   $('#avatarPhoto').addEventListener('change', async event => {
     if (!event.target.files[0]) return;
-    try { await saveAvatar(event.target.files[0]); await loadAvatar(); toast('Фото профиля сохранено'); }
-    catch (error) { toast(error.message, 'err'); }
+    const status = $('#avatarPhotoStatus');
+    status.textContent = 'Сохраняем фото…';
+    try { await saveAvatar(event.target.files[0]); avatarChoice = 'photo'; await loadAvatar(); status.textContent = 'Фото сохранено. Оно появится в шапке приложения.'; toast('Фото профиля сохранено'); }
+    catch (error) { status.textContent = error.message; toast(error.message, 'err'); }
   });
   $$(".profile-emoji-row .chip").forEach(b => b.addEventListener("click", () => {
     $$(".profile-emoji-row .chip").forEach(x => x.classList.toggle("active", x === b));
-    state.profile.avatar_emoji = b.dataset.em;
+    selectedEmoji = b.dataset.em;
+    avatarChoice = 'symbol';
     $("#profileAvatar").textContent = b.dataset.em;
+    $('#avatarPhotoStatus').textContent = 'Символ появится после сохранения профиля.';
   }));
   g.querySelectorAll("[data-ptm]").forEach(b => b.addEventListener("click", () => {
     state.settings.theme_mode = b.dataset.ptm;
@@ -1023,7 +1076,8 @@ function renderProfile() {
   $("#profileSave").addEventListener("click", async () => {
     const name = $("#profileNameInput").value.trim();
     const occ = $("#profileOcc").value.trim();
-    const updated = await api.saveProfile({ name: name || null, occupation: occ || null, avatar_emoji: state.profile.avatar_emoji });
+    if (avatarChoice === 'symbol') await clearAvatar();
+    const updated = await api.saveProfile({ name: name || null, occupation: occ || null, avatar_emoji: selectedEmoji || null });
     state.profile = updated;
     applyProfile();
     toast("Профиль сохранён", "ok");

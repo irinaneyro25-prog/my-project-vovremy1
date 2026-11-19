@@ -31,9 +31,11 @@
     </form>
   </section>
   <header class="topbar">
+    <button class="icon-btn nav-back hidden" id="navBack" type="button" aria-label="Назад" title="Назад">‹</button>
     <button class="brand" id="brandMenuToggle" type="button" aria-label="Открыть меню" aria-controls="nav" aria-expanded="false">
       <img class="brand-mark" src="./icons/new-logo.png" width="32" height="32" alt="">
       <span class="brand-name">Вовремя</span>
+      <span class="brand-menu-glyph" aria-hidden="true">☰</span>
     </button>
     <button class="nav-toggle" id="navToggle" aria-label="Меню">☰</button>
     <nav class="nav" id="nav">
@@ -86,13 +88,13 @@
       <div class="hero-summary" id="heroSummary"></div>
       <div id="homeEmpty" class="home-empty hidden"></div>
       <div class="buckets priority-grid" id="buckets">
-        <section class="bucket priority-bucket" data-priority="1"><h3><button type="button" class="priority-heading">Срочно и важно <span class="count" id="cntP1">0</span></button></h3><div class="bucket-list" data-bucket="p1"></div></section>
-        <section class="bucket priority-bucket" data-priority="2"><h3><button type="button" class="priority-heading">Важно, не срочно <span class="count" id="cntP2">0</span></button></h3><div class="bucket-list" data-bucket="p2"></div></section>
-        <section class="bucket priority-bucket" data-priority="3"><h3><button type="button" class="priority-heading">Срочно, не важно <span class="count" id="cntP3">0</span></button></h3><div class="bucket-list" data-bucket="p3"></div></section>
-        <section class="bucket priority-bucket" data-priority="4"><h3><button type="button" class="priority-heading">Можно позже <span class="count" id="cntP4">0</span></button></h3><div class="bucket-list" data-bucket="p4"></div></section>
+        <section class="bucket priority-bucket" data-priority="1"><h3><button type="button" class="priority-heading"><span class="priority-label">Срочно и важно</span><span class="count" id="cntP1">0</span></button></h3><div class="bucket-list" data-bucket="p1"></div></section>
+        <section class="bucket priority-bucket" data-priority="2"><h3><button type="button" class="priority-heading"><span class="priority-label">Важно, не срочно</span><span class="count" id="cntP2">0</span></button></h3><div class="bucket-list" data-bucket="p2"></div></section>
+        <section class="bucket priority-bucket" data-priority="3"><h3><button type="button" class="priority-heading"><span class="priority-label">Срочно, не важно</span><span class="count" id="cntP3">0</span></button></h3><div class="bucket-list" data-bucket="p3"></div></section>
+        <section class="bucket priority-bucket" data-priority="4"><h3><button type="button" class="priority-heading"><span class="priority-label">Можно позже</span><span class="count" id="cntP4">0</span></button></h3><div class="bucket-list" data-bucket="p4"></div></section>
       </div>
       <section class="bucket priority-bucket completed-bucket" id="completedBucket">
-        <h3><button type="button" class="priority-heading" id="completedHeading">Выполнено <span class="count" id="cntCompleted">0</span></button></h3>
+        <h3><button type="button" class="priority-heading" id="completedHeading"><span class="priority-label">Выполнено</span><span class="count" id="cntCompleted">0</span></button></h3>
         <div class="bucket-list" id="completedList"></div>
       </section>
     </section>
