@@ -1240,13 +1240,13 @@ function openSidePanel(id, initialStart = null) {
         <label for="spCat">Категория из списка</label><select id="spCat">${cats.map(c => `<option value="${escapeHtml(c.name)}" ${c.name===t.category?'selected':''}>${escapeHtml(c.name)}</option>`).join("")}</select></div>
       <div class="sp-field"><label>Приоритет</label>
         <div class="sp-actions-row" id="spPrio">
-          ${[1,2,3,4].map(p => `<button class="chip ${priorityGroup(t)===p?'active':''}" data-p="${p}"><span class="prio-dot p${p}"></span> ${priorityLabel(p)}</button>`).join("")}
+          ${[1,2,3,4].map(p => `<button type="button" class="chip ${priorityGroup(t)===p?'active':''}" data-p="${p}" aria-pressed="${priorityGroup(t)===p}"><span class="prio-dot p${p}"></span> ${priorityLabel(p)}</button>`).join("")}
         </div>
       </div>
       <div class="sp-field"><label>Напоминание</label>
         <div class="sp-actions-row" id="spRem">
-          <button type="button" class="chip ${!t.reminders?.length?'active':''}" data-r="">Без</button>
-          ${REMINDER_OPTIONS.map(m => `<button type="button" class="chip ${t.reminders?.includes(m)?'active':''}" data-r="${m}">${reminderLabel(m)}</button>`).join('')}
+          <button type="button" class="chip ${!t.reminders?.length?'active':''}" data-r="" aria-pressed="${!t.reminders?.length}">Без</button>
+          ${REMINDER_OPTIONS.map(m => `<button type="button" class="chip ${t.reminders?.includes(m)?'active':''}" data-r="${m}" aria-pressed="${Boolean(t.reminders?.includes(m))}">${reminderLabel(m)}</button>`).join('')}
         </div>
         <p class="hint" id="spReminderTiming" role="status"></p>
       </div>
@@ -1272,7 +1272,7 @@ function openSidePanel(id, initialStart = null) {
     $('#spCat').addEventListener('change', updateCategoryChoices);
     $$("#spPrio .chip").forEach(b => b.addEventListener("click", () => {
       prio = Number(b.dataset.p);
-      $$("#spPrio .chip").forEach(x => x.classList.toggle("active", x === b));
+      $$("#spPrio .chip").forEach(x => { x.classList.toggle("active", x === b); x.setAttribute('aria-pressed', String(x === b)); });
     }));
     let selectedReminders = [...(t.reminders || [])];
     const updateSideReminderHint = () => {
@@ -1281,7 +1281,7 @@ function openSidePanel(id, initialStart = null) {
     $$("#spRem .chip").forEach(b => b.addEventListener("click", () => {
       const minutes = Number(b.dataset.r);
       selectedReminders = minutes ? [minutes] : [];
-      $$("#spRem .chip").forEach(x => x.classList.toggle("active", x.dataset.r ? selectedReminders.includes(Number(x.dataset.r)) : !selectedReminders.length));
+      $$("#spRem .chip").forEach(x => { const active = x.dataset.r ? selectedReminders.includes(Number(x.dataset.r)) : !selectedReminders.length; x.classList.toggle("active", active); x.setAttribute('aria-pressed', String(active)); });
       updateSideReminderHint();
     }));
     $("#spStart").addEventListener("change", updateSideReminderHint);
