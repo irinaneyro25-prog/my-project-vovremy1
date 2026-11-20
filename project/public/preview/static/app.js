@@ -806,6 +806,7 @@ async function renderSettings() {
     <div class="settings-card">
       <h3>Хранение задач</h3>
       <p class="hint">${api.mode === 'cloud' ? 'Задачи сохраняются в облаке. При ошибке связи изменения не сохраняются. Профиль, тема и настройки браузерных уведомлений пока относятся к этому устройству.' : api.mode === 'local' ? 'Задачи сохранены в этом браузере. Они доступны без сервера, но не синхронизируются между устройствами. Очистка данных сайта удалит их.' : 'Задачи сохранены на сервере. Напоминания и разрешение на уведомления настраиваются отдельно в каждом браузере.'}</p>
+      ${api.mode === 'local' ? '<p class="hint storage-telegram-note">Telegram-бот не видит задачи этого браузера и не сможет прислать по ним напоминания. Для сообщений в Telegram подключите облако, войдите в аккаунт, перенесите задачи через резервную копию и привяжите бота.</p>' : ''}
       ${api.mode === 'local' ? `<details><summary>Расширенная настройка · для разработчика</summary><div class="field"><label for="cloudKey">Publishable key Supabase</label><input id="cloudKey" autocomplete="off" placeholder="sb_publishable_…"><p class="hint">Ключ можно найти в Supabase → Project Settings → API Keys. Он хранится только в этом браузере. После подключения войдите в созданный личный аккаунт.</p><button class="ghost" id="connectCloud">Подключить облако</button><p id="connectCloudStatus" role="status"></p></div></details>` : ''}
       ${api.mode === 'cloud' ? `<button class="ghost" id="cloudSignOut">Выйти из облачного аккаунта</button>` : ''}
     </div>
