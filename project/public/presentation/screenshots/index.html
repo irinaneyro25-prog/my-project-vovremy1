@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Скриншоты «Вовремя» для презентации</title>
+  <meta name="description" content="Настоящие мобильные экраны приложения «Вовремя» с демонстрационными задачами.">
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; color:#241638; font:16px/1.5 system-ui,sans-serif; background:linear-gradient(130deg,#e5f5f6,#eee6fa 65%,#f9f7ff); }
+    header,main,footer { width:min(1200px,100% - 36px); margin:auto; }
+    header { padding:48px 0 24px; }
+    h1 { font-size:clamp(32px,5vw,58px); line-height:1.1; margin:14px 0; }
+    h2 { font-size:21px; margin:0 0 5px; }
+    p { margin:0; color:#635b70; }
+    .eyebrow { color:#6252a2; font-weight:750; letter-spacing:.1em; text-transform:uppercase; font-size:12px; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin:24px 0 6px; }
+    .button { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:10px 18px; border-radius:999px; text-decoration:none; font-weight:700; background:#fff; color:#392957; border:1px solid #ded3f1; }
+    .button.primary { color:#fff; background:linear-gradient(140deg,#816fc6,#5c50a6); border-color:#5c50a6; }
+    .button:focus-visible,.card a:focus-visible { outline:3px solid #7262ba; outline-offset:3px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:22px; padding:24px 0 48px; }
+    .card { padding:14px; background:#ffffffc9; border:1px solid #fff; border-radius:24px; box-shadow:0 12px 28px #24163814; }
+    .card img { display:block; width:100%; aspect-ratio:390/844; object-fit:cover; object-position:top; background:#f4f0f8; border-radius:17px; border:1px solid #e3d9ee; }
+    .card img.tall { object-fit:contain; }
+    .card h2 { margin:14px 3px 5px; }
+    .card p { margin:0 3px 12px; font-size:14px; min-height:42px; }
+    .card a { display:inline-block; padding:7px 3px; color:#5847a0; font-weight:700; text-decoration:none; }
+    footer { padding:0 0 36px; font-size:13px; color:#6d647a; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Вовремя · материалы для презентации</div>
+    <h1>Экраны приложения</h1>
+    <p>Реальные скриншоты мобильной версии. Имя и задачи на них вымышленные.</p>
+    <div class="actions">
+      <a class="button primary" href="../vovremya-mobile-screenshots.zip" download>Скачать все PNG одним архивом ↓</a>
+      <a class="button" href="../">Открыть интерактивную презентацию ↗</a>
+      <a class="button" href="../../">Открыть приложение ↗</a>
+    </div>
+  </header>
+  <main class="grid">
+    <article class="card"><img src="../assets/home-light.png" alt="Главная, светлая тема" loading="lazy"><h2>Главная · день</h2><p>Приветствие, быстрый ввод и задачи по времени.</p><a href="../assets/home-light.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/home-dark.png" alt="Главная, вечерняя тема" loading="lazy"><h2>Главная · вечер</h2><p>Тот же план в тёмной теме приложения.</p><a href="../assets/home-dark.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/home-next.png" alt="Следующая задача и сводка дня" loading="lazy"><h2>Следующая задача</h2><p>Ближайшее дело, дата и показатели дня.</p><a href="../assets/home-next.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/priorities.png" alt="Задачи по приоритетам" loading="lazy"><h2>Приоритеты</h2><p>Цветные разделы «Срочно и важно» и другие.</p><a href="../assets/priorities.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img class="tall" src="../assets/priorities-all.png" alt="Все четыре приоритета" loading="lazy"><h2>Все четыре приоритета</h2><p>Длинный кадр с полным набором разделов.</p><a href="../assets/priorities-all.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/task-form.png" alt="Форма новой задачи" loading="lazy"><h2>Новая задача</h2><p>Название, дата, время и категории.</p><a href="../assets/task-form.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/task-options.png" alt="Категории, приоритет и напоминание" loading="lazy"><h2>Настройки задачи</h2><p>Выбор категории, приоритета и напоминания.</p><a href="../assets/task-options.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/calendar.png" alt="Календарь по месяцам" loading="lazy"><h2>Календарь · месяц</h2><p>Компактный месяц и добавление задачи на дату.</p><a href="../assets/calendar.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/calendar-day.png" alt="Календарь на выбранный день" loading="lazy"><h2>Календарь · день</h2><p>Все задачи выбранного дня.</p><a href="../assets/calendar-day.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/tasks.png" alt="Все задачи и фильтры" loading="lazy"><h2>Все задачи</h2><p>Поиск и выборка по категориям, важности и срочности.</p><a href="../assets/tasks.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/report.png" alt="Обзор дня" loading="lazy"><h2>Обзор дня</h2><p>Итог дня и задачи в порядке важности.</p><a href="../assets/report.png" download>Скачать PNG ↓</a></article>
+    <article class="card"><img src="../assets/report-actions.png" alt="Экспорт отчёта" loading="lazy"><h2>Экспорт и отправка</h2><p>PNG, печать/PDF, копирование текста и «Поделиться».</p><a href="../assets/report-actions.png" download>Скачать PNG ↓</a></article>
+  </main>
+  <footer>Изображения сделаны из работающего приложения с демонстрационными данными. Размер экранных кадров — 780 × 1688 px.</footer>
+</body>
+</html>

@@ -672,4 +672,6 @@ body.panel-open { overflow:hidden; }
   .side-panel input,.side-panel select,.side-panel textarea { font-size:16px; }
   .today-agenda { padding:12px; }
   .today-agenda-open { gap:7px; }
+  .topbar { background:#f8f7ff; }
+  [data-theme="dark"] .topbar { background:#f1edfa; }
 }
