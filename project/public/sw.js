@@ -1,5 +1,5 @@
 // Service worker показывает уведомления, но не планирует фоновые таймеры.
-const CACHE = 'vovremya-shell-v6';
+const CACHE = 'vovremya-shell-v7';
 const ASSETS = ['./', './index.html', './static/styles.css', './static/app.js',
   './static/icons.js', './static/planner-api.js', './static/cloud-api.js', './static/planner-core.js', './static/reminders.js', './static/task-backup.js',
   './static/fonts/manrope.ttf', './static/fonts/inter.ttf', './manifest.webmanifest',

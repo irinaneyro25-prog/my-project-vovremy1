@@ -99,10 +99,15 @@ function toast(text, kind = "ok") {
 }
 
 // === тема ===
+function currentHour() {
+  return Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: state.settings.timezone || 'Europe/Moscow', hour: '2-digit', hourCycle: 'h23',
+  }).format(new Date()));
+}
 function effectiveTheme(mode) {
   if (mode === "light") return "light";
   if (mode === "dark") return "dark";
-  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: state.settings.timezone || 'Europe/Moscow', hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+  const h = currentHour();
   return (h >= 17 || h < 7) ? "dark" : "light";
 }
 function applyTheme() {
@@ -112,7 +117,10 @@ function applyTheme() {
   $("#themeLabel").textContent = labels[state.settings.theme_mode || "auto"] || "Авто";
   $("#themeIcon").innerHTML = icon(state.settings.theme_mode === 'light' ? 'sun' : state.settings.theme_mode === 'dark' ? 'theme' : 'auto');
 }
-setInterval(() => { if (state.settings.theme_mode === 'auto') applyTheme(); }, 60000);
+setInterval(() => { if (state.settings.theme_mode === 'auto') applyTheme(); updateGreeting(); }, 60000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { if (state.settings.theme_mode === 'auto') applyTheme(); updateGreeting(); }
+});
 $("#themeToggle").addEventListener("click", () => {
   const cur = state.settings.theme_mode || "auto";
   const next = cur === "auto" ? "light" : cur === "light" ? "dark" : "auto";
@@ -123,11 +131,15 @@ $("#themeToggle").addEventListener("click", () => {
 
 // === приветствие и профиль ===
 function greetingText() {
-  const h = new Date().getHours();
-  const part = h < 6 ? "Доброй ночи" : h < 11 ? "Доброе утро" : h < 17 ? "Здравствуй" : h < 22 ? "Добрый вечер" : "Доброй ночи";
+  const h = currentHour();
+  const part = h < 6 ? "Доброй ночи" : h < 12 ? "Доброе утро" : h < 17 ? "Добрый день" : h < 21 ? "Добрый вечер" : "Доброй ночи";
   const name = state.profile?.name?.trim();
 
   return name ? `${part}, ${name}` : part;
+}
+function updateGreeting() {
+  $("#heroGreeting").textContent = greetingText();
+  $("#heroDate").textContent = fmt.dayMonth(new Date().toISOString(), state.settings.timezone);
 }
 function avatarDatabase() {
   return new Promise((resolve, reject) => {
@@ -203,11 +215,10 @@ async function loadAvatar() {
 function applyProfile() {
   const p = state.profile || {};
   const name = p.name?.trim();
-  $("#heroGreeting").textContent = greetingText();
+  updateGreeting();
   $("#profileName").textContent = name || "Гость";
   $("#profileAvatar").textContent = p.avatar_emoji || (name ? name[0].toUpperCase() : "В");
   loadAvatar().catch(() => {});
-  $("#heroDate").textContent = fmt.dayMonth(new Date().toISOString(), state.settings.timezone);
 }
 $("#profilePill").addEventListener("click", () => {
   setTimeout(() => {
